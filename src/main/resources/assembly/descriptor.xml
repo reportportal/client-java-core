@@ -1,0 +1,24 @@
+<assembly>
+	<id>ReportPortalClientAPI</id>
+	<formats>
+		<format>zip</format>
+	</formats>
+	<includeBaseDirectory>false</includeBaseDirectory>
+	<dependencySets>
+		<dependencySet>
+			<unpack>false</unpack>
+			<scope>runtime</scope>
+			<outputDirectory>/lib</outputDirectory>
+			<excludes>
+				<exclude>${groupId}:${artifactId}</exclude>
+			</excludes>
+		</dependencySet>
+	</dependencySets>
+	<files>
+		<file>
+			<!-- <source>target/${artifactId}.${project.packaging}</source> -->
+			<source>target/${artifactId}-${project.version}.${project.packaging}</source>
+			<destName>${artifactId}.${project.packaging}</destName>
+		</file>
+	</files>
+</assembly>

@@ -1,1 +1,1 @@
-# client-core
+# client-java-core
