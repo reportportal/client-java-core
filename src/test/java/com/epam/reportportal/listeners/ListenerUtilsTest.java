@@ -22,16 +22,53 @@ package com.epam.reportportal.listeners;
 
 import static com.epam.ta.reportportal.ws.model.launch.Mode.DEBUG;
 import static com.epam.ta.reportportal.ws.model.launch.Mode.DEFAULT;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.*;
 
-import com.epam.reportportal.listeners.ListenersUtils;
-import org.junit.Assert;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+
+import org.junit.After;
 import org.junit.Test;
+import org.slf4j.Logger;
+
+import com.epam.reportportal.restclient.endpoint.exception.RestEndpointIOException;
 
 public class ListenerUtilsTest {
 
 	@Test
 	public void getLaunchMode() {
-		Assert.assertEquals(DEFAULT, ListenersUtils.getLaunchMode("notvalid"));
-		Assert.assertEquals(DEBUG, ListenersUtils.getLaunchMode("Debug"));
+		assertEquals(DEFAULT, ListenersUtils.getLaunchMode("notvalid"));
+		assertEquals(DEBUG, ListenersUtils.getLaunchMode("Debug"));
+	}
+
+	@Test
+	public void handleException_restEndpointIOExceptionAndNullLogger() {
+		String message = "console message";
+		RestEndpointIOException exception = new RestEndpointIOException(message);
+		Logger nullLogger = null;
+
+		ByteArrayOutputStream outContent = new ByteArrayOutputStream();
+		System.setOut(new PrintStream(outContent));
+
+		ListenersUtils.handleException(exception, nullLogger, "");
+		// check System.out.println(...) output
+		assertEquals(String.format("%s%n", message), outContent.toString());
+	}
+
+	@Test
+	public void handleException_restEndpointIOExceptionAndNonNullLogger() {
+		String logMessage = "some log message";
+		RestEndpointIOException exception = new RestEndpointIOException("");
+		Logger loggerMock = mock(Logger.class);
+
+		ListenersUtils.handleException(exception, loggerMock, logMessage);
+
+		verify(loggerMock, times(1)).error(logMessage, exception);
+	}
+
+	@After
+	public void cleanUpOutputStream() {
+		System.setOut(null);
 	}
 }

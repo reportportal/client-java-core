@@ -23,8 +23,8 @@ package com.epam.reportportal.listeners;
 import org.slf4j.Logger;
 
 import com.epam.reportportal.exception.ReportPortalException;
-import com.epam.ta.reportportal.ws.model.launch.Mode;
 import com.epam.reportportal.restclient.endpoint.exception.RestEndpointIOException;
+import com.epam.ta.reportportal.ws.model.launch.Mode;
 import com.google.common.base.Throwables;
 
 /**
@@ -49,7 +49,7 @@ public class ListenersUtils {
 	 * @param message
 	 */
 	public static void handleException(Exception exception, Logger logger, String message) {
-		if (ReportPortalException.class.isInstance(exception) || RestEndpointIOException.class.getClass().equals(exception.getClass())) {
+		if (ReportPortalException.class.isInstance(exception) || RestEndpointIOException.class.equals(exception.getClass())) {
 			if (logger != null) {
 				logger.error(message, exception);
 			} else {
