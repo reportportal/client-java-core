@@ -22,7 +22,8 @@ dependencies {
     compile 'org.apache.tika:tika-core:1.4'
     compile 'org.slf4j:slf4j-api:1.7.2'
     testCompile 'junit:junit:4.12'
-    compileOnly('info.cukes:gherkin:2.12.2')
+    testCompile 'org.mockito:mockito-all:2.0.2-beta'
+    compileOnly 'info.cukes:gherkin:2.12.2'
 }
 test.useTestNG()
 
