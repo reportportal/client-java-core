@@ -87,6 +87,7 @@ public class PropertiesLoader {
 		if (propertyFile.isPresent()) {
 			props.load(Resources.asByteSource(propertyFile.get()).openBufferedStream());
 		}
+        reloadFromSystemProperties(props);
 		reloadFromEnvVariables(props);
 		reloadFromSoapUI(props);
 		validateProperties(props);
@@ -129,16 +130,32 @@ public class PropertiesLoader {
 	}
 
 	/**
-	 * Reload properties from environment variables.
+	 * Reload properties from system properties.
 	 *
 	 * @param props
 	 * @return props
 	 */
+	public static Properties reloadFromSystemProperties(Properties props) {
+        Properties systemProperties = System.getProperties();
+        for (ListenerProperty listenerProperty : ListenerProperty.values()) {
+            if (systemProperties.getProperty(listenerProperty.getPropertyName()) != null) {
+                props.setProperty(listenerProperty.getPropertyName(), systemProperties.getProperty(listenerProperty.getPropertyName()));
+            }
+        }
+        return props;
+    }
+
+    /**
+     * Reload properties from environment variables.
+     *
+     * @param props
+     * @return props
+     */
 	public static Properties reloadFromEnvVariables(Properties props) {
-		Properties systemProperties = System.getProperties();
+		Map<String, String> environmentVariables = System.getenv();
 		for (ListenerProperty listenerProperty : ListenerProperty.values()) {
-			if (systemProperties.getProperty(listenerProperty.getPropertyName()) != null) {
-				props.setProperty(listenerProperty.getPropertyName(), systemProperties.getProperty(listenerProperty.getPropertyName()));
+			if (environmentVariables.get(listenerProperty.getPropertyName()) != null) {
+				props.setProperty(listenerProperty.getPropertyName(), environmentVariables.get(listenerProperty.getPropertyName()));
 			}
 		}
 		return props;
