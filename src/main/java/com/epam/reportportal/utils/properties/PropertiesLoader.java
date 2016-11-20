@@ -24,15 +24,19 @@ import java.io.*;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.Map;
 import java.util.Properties;
 
 import com.epam.reportportal.exception.InternalReportPortalClientException;
 import com.epam.reportportal.restclient.endpoint.IOUtils;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 
 /**
@@ -87,9 +91,15 @@ public class PropertiesLoader {
 		if (propertyFile.isPresent()) {
 			props.load(Resources.asByteSource(propertyFile.get()).openBufferedStream());
 		}
-        reloadFromSystemProperties(props);
-		reloadFromEnvVariables(props);
-		reloadFromSoapUI(props);
+		overrideWith(props, System.getProperties());
+		overrideWith(props, System.getenv());
+
+		/* Reload soapui properties if required */
+		Map<String, String> soapUIProperties = SoapUIPropertiesHolder.getSoapUIProperties();
+		if (soapUIProperties != null) {
+			overrideWith(props, soapUIProperties);
+		}
+
 		validateProperties(props);
 		reloadProperties(props);
 		setProxyProperties(props);
@@ -129,40 +139,9 @@ public class PropertiesLoader {
 		return props;
 	}
 
-	/**
-	 * Reload properties from system properties.
-	 *
-	 * @param props
-	 * @return props
-	 */
-	public static Properties reloadFromSystemProperties(Properties props) {
-        Properties systemProperties = System.getProperties();
-        for (ListenerProperty listenerProperty : ListenerProperty.values()) {
-            if (systemProperties.getProperty(listenerProperty.getPropertyName()) != null) {
-                props.setProperty(listenerProperty.getPropertyName(), systemProperties.getProperty(listenerProperty.getPropertyName()));
-            }
-        }
-        return props;
-    }
-
-    /**
-     * Reload properties from environment variables.
-     *
-     * @param props
-     * @return props
-     */
-	public static Properties reloadFromEnvVariables(Properties props) {
-		Map<String, String> environmentVariables = System.getenv();
-		for (ListenerProperty listenerProperty : ListenerProperty.values()) {
-			if (environmentVariables.get(listenerProperty.getPropertyName()) != null) {
-				props.setProperty(listenerProperty.getPropertyName(), environmentVariables.get(listenerProperty.getPropertyName()));
-			}
-		}
-		return props;
-	}
 
 	/**
-	 * Validate that properties: {@link ListenerProperty#USER_NAME};
+	 * Validate that properties
 	 * {@link ListenerProperty#UUID}; {@link ListenerProperty#BASE_URL};
 	 * {@link ListenerProperty#PROJECT_NAME};
 	 * {@link ListenerProperty#LAUNCH_NAME}; not null
@@ -180,21 +159,27 @@ public class PropertiesLoader {
 	}
 
 	/**
-	 * Reload soapui properties if required
-	 *
-	 * @param properties
+	 * Overrides properties from another source
+	 * @param source Properties to be overridden
+	 * @param overrides Overrides
 	 */
-	public static Properties reloadFromSoapUI(Properties properties) {
-		Map<String, String> soapUIProperties = SoapUIPropertiesHolder.getSoapUIProperties();
-		if (soapUIProperties == null) {
-			return properties;
-		}
+	@VisibleForTesting
+	static void overrideWith(Properties source, Map<String,String> overrides) {
 		for (ListenerProperty listenerProperty : ListenerProperty.values()) {
-			if (soapUIProperties.containsKey(listenerProperty.getPropertyName())) {
-				properties.setProperty(listenerProperty.getPropertyName(), soapUIProperties.get(listenerProperty.getPropertyName()));
+			if (overrides.get(listenerProperty.getPropertyName()) != null) {
+				source.setProperty(listenerProperty.getPropertyName(), overrides.get(listenerProperty.getPropertyName()));
 			}
 		}
-		return properties;
+	}
+
+	/**
+	 * Overrides properties from another source
+	 * @param source Properties to be overridden
+	 * @param overrides Overrides
+	 */
+	@VisibleForTesting
+	static void overrideWith(Properties source, Properties overrides) {
+		overrideWith(source, ((Map) overrides));
 	}
 
 	private static Optional<URL> getResource(String resourceName) {

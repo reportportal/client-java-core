@@ -18,11 +18,12 @@
  * You should have received a copy of the GNU General Public License
  * along with Report Portal.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.epam;
+package com.epam.reportportal.utils.properties;
 
 import java.io.IOException;
 import java.util.Properties;
 
+import com.google.common.collect.ImmutableMap;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -53,4 +54,19 @@ public class PropertiesLoaderTest {
 		}
 
 	}
+
+	@Test
+	public void testOverride() throws IOException {
+		Properties properties = new Properties();
+		String propertyKey = ListenerProperty.DESCRIPTION.getPropertyName();
+		properties.setProperty(propertyKey, "testvalue");
+
+		PropertiesLoader.overrideWith(properties, ImmutableMap.<String, String>builder().put(propertyKey, "anothervalue").build());
+		Assert.assertEquals("Incorrect override behaviour", "anothervalue", properties.getProperty(propertyKey));
+
+		Properties overrides = new Properties();
+		overrides.setProperty(propertyKey, "overridenFromPropertiesObject");
+		PropertiesLoader.overrideWith(properties, overrides);
+		Assert.assertEquals("Incorrect override behaviour", properties.getProperty(propertyKey), "overridenFromPropertiesObject");
+ 	}
 }
