@@ -32,6 +32,7 @@ import com.epam.reportportal.message.HashMarkSeparatedMessageParser;
 import com.epam.reportportal.message.MessageParser;
 import com.epam.reportportal.service.BatchedReportPortalService;
 import com.epam.reportportal.service.ReportPortalErrorHandler;
+import com.epam.reportportal.service.ReportPortalService;
 import com.epam.reportportal.utils.properties.ListenerProperty;
 import com.epam.reportportal.utils.properties.PropertiesLoader;
 import com.epam.reportportal.restclient.serializer.Jackson2Serializer;
@@ -159,6 +160,18 @@ public class ReportPortalClientModule implements Module {
 			logsBatchSize = 10;
 		}
 		return new BatchedReportPortalService(restEndpoint, API_BASE, project, logsBatchSize);
+	}
+
+	/**
+	 * Binds the same instance for {@link ReportPortalService} interface.
+	 * Guice cannot bind {@link #provideRepoPortalService(BatchedReportPortalService)} to {@link ReportPortalService} automatically
+	 * @param reportPortalService Instance for binding
+	 * @return {@link ReportPortalService} instance
+	 */
+	@Provides
+	@Singleton
+	public ReportPortalService provideRepoPortalService(BatchedReportPortalService reportPortalService){
+		return reportPortalService;
 	}
 
 	/**

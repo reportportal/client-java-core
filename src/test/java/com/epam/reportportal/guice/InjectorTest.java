@@ -20,6 +20,7 @@
  */
 package com.epam.reportportal.guice;
 
+import com.epam.reportportal.service.ReportPortalService;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -35,8 +36,8 @@ public class InjectorTest {
 
 	@Test
 	public void testSingletons() {
-		BatchedReportPortalService service1 = Injector.getInstance().getBean(BatchedReportPortalService.class);
-		BatchedReportPortalService service2 = Injector.getInstance().getBean(BatchedReportPortalService.class);
+		ReportPortalService service1 = Injector.getInstance().getBean(ReportPortalService.class);
+		ReportPortalService service2 = Injector.getInstance().getBean(BatchedReportPortalService.class);
 
 		Assert.assertEquals(service1, service2);
 
