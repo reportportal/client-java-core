@@ -26,6 +26,7 @@ dependencies {
     compileOnly 'info.cukes:gherkin:2.12.2'
 }
 test.useTestNG()
+test.maxParallelForks = 1
 
 task wrapper(type: Wrapper) {
     gradleVersion = '3.0'

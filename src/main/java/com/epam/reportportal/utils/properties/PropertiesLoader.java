@@ -20,6 +20,14 @@
  */
 package com.epam.reportportal.utils.properties;
 
+import com.epam.reportportal.exception.InternalReportPortalClientException;
+import com.epam.reportportal.restclient.endpoint.IOUtils;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Optional;
+import com.google.common.base.Supplier;
+import com.google.common.io.Resources;
+
 import java.io.*;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
@@ -27,13 +35,8 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Properties;
 
-import com.epam.reportportal.exception.InternalReportPortalClientException;
-import com.epam.reportportal.restclient.endpoint.IOUtils;
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.io.Resources;
+import static com.epam.reportportal.utils.properties.ListenerProperty.values;
+import static com.google.common.base.Suppliers.memoize;
 
 /**
  * Load report portal launch start properties
@@ -45,7 +48,7 @@ public class PropertiesLoader {
 			"https.proxyPort", "ftp.proxyHost", "ftp.proxyPort", "ftp.nonProxyHosts", "socksProxyHost", "socksProxyPort", "http.proxyUser",
 			"http.proxyPassword" };
 
-	private static Supplier<Properties> propertiesSupplier = Suppliers.memoize(new Supplier<Properties>() {
+	private static Supplier<Properties> propertiesSupplier = memoize(new Supplier<Properties>() {
 		@Override
 		public Properties get() {
 			try {
@@ -60,7 +63,7 @@ public class PropertiesLoader {
 	 * Get specified property loaded from properties file and reloaded from from
 	 * environment variables.
 	 *
-	 * @param propertyName
+	 * @param propertyName Name of property
 	 */
 	public static String getProperty(String propertyName) {
 		return propertiesSupplier.get().getProperty(propertyName);
@@ -78,8 +81,8 @@ public class PropertiesLoader {
 	 * Try to load properties from file situated in the class path, and then
 	 * reload existing parameters from environment variables
 	 *
-	 * @return
-	 * @throws IOException
+	 * @return loaded properties
+	 * @throws IOException In case of IO error
 	 */
 	private static Properties loadProperties() throws IOException {
 		Properties props = new Properties();
@@ -87,9 +90,15 @@ public class PropertiesLoader {
 		if (propertyFile.isPresent()) {
 			props.load(Resources.asByteSource(propertyFile.get()).openBufferedStream());
 		}
-        reloadFromSystemProperties(props);
-		reloadFromEnvVariables(props);
-		reloadFromSoapUI(props);
+		overrideWith(props, System.getProperties());
+		overrideWith(props, System.getenv());
+
+		/* Reload soapui properties if required */
+		Map<String, String> soapUIProperties = SoapUIPropertiesHolder.getSoapUIProperties();
+		if (soapUIProperties != null) {
+			overrideWith(props, soapUIProperties);
+		}
+
 		validateProperties(props);
 		reloadProperties(props);
 		setProxyProperties(props);
@@ -98,7 +107,7 @@ public class PropertiesLoader {
 
 	// will be removed in next release
 	private static void reloadProperties(Properties props) {
-		for (ListenerProperty property : ListenerProperty.values()) {
+		for (ListenerProperty property : values()) {
 			if (property.getPropertyName().startsWith("rp.") && props.getProperty(property.getPropertyName()) == null) {
 				String value = props.getProperty(property.getPropertyName().replace("rp.", "com.epam.ta.reportportal.ws."));
 				if (value != null)
@@ -129,40 +138,9 @@ public class PropertiesLoader {
 		return props;
 	}
 
-	/**
-	 * Reload properties from system properties.
-	 *
-	 * @param props
-	 * @return props
-	 */
-	public static Properties reloadFromSystemProperties(Properties props) {
-        Properties systemProperties = System.getProperties();
-        for (ListenerProperty listenerProperty : ListenerProperty.values()) {
-            if (systemProperties.getProperty(listenerProperty.getPropertyName()) != null) {
-                props.setProperty(listenerProperty.getPropertyName(), systemProperties.getProperty(listenerProperty.getPropertyName()));
-            }
-        }
-        return props;
-    }
-
-    /**
-     * Reload properties from environment variables.
-     *
-     * @param props
-     * @return props
-     */
-	public static Properties reloadFromEnvVariables(Properties props) {
-		Map<String, String> environmentVariables = System.getenv();
-		for (ListenerProperty listenerProperty : ListenerProperty.values()) {
-			if (environmentVariables.get(listenerProperty.getPropertyName()) != null) {
-				props.setProperty(listenerProperty.getPropertyName(), environmentVariables.get(listenerProperty.getPropertyName()));
-			}
-		}
-		return props;
-	}
 
 	/**
-	 * Validate that properties: {@link ListenerProperty#USER_NAME};
+	 * Validate that properties
 	 * {@link ListenerProperty#UUID}; {@link ListenerProperty#BASE_URL};
 	 * {@link ListenerProperty#PROJECT_NAME};
 	 * {@link ListenerProperty#LAUNCH_NAME}; not null
@@ -171,30 +149,36 @@ public class PropertiesLoader {
 	 */
 	private static void validateProperties(Properties properties) {
 		// don't remove this code !!!
-		for (ListenerProperty listenerProperty : ListenerProperty.values()) {
+		for (ListenerProperty listenerProperty : values()) {
 			if (listenerProperty.isRequired() && properties.getProperty(listenerProperty.getPropertyName()) == null) {
-				throw new IllegalArgumentException(new StringBuilder("Property '").append(listenerProperty.getPropertyName())
-						.append("' should not be null.").toString());
+				throw new IllegalArgumentException("Property '" + listenerProperty.getPropertyName() + "' should not be null.");
 			}
 		}
 	}
 
 	/**
-	 * Reload soapui properties if required
-	 *
-	 * @param properties
+	 * Overrides properties from another source
+	 * @param source Properties to be overridden
+	 * @param overrides Overrides
 	 */
-	public static Properties reloadFromSoapUI(Properties properties) {
-		Map<String, String> soapUIProperties = SoapUIPropertiesHolder.getSoapUIProperties();
-		if (soapUIProperties == null) {
-			return properties;
-		}
-		for (ListenerProperty listenerProperty : ListenerProperty.values()) {
-			if (soapUIProperties.containsKey(listenerProperty.getPropertyName())) {
-				properties.setProperty(listenerProperty.getPropertyName(), soapUIProperties.get(listenerProperty.getPropertyName()));
+	@VisibleForTesting
+	static void overrideWith(Properties source, Map<String,String> overrides) {
+		for (ListenerProperty listenerProperty : values()) {
+			if (overrides.get(listenerProperty.getPropertyName()) != null) {
+				source.setProperty(listenerProperty.getPropertyName(), overrides.get(listenerProperty.getPropertyName()));
 			}
 		}
-		return properties;
+	}
+
+	/**
+	 * Overrides properties from another source
+	 * @param source Properties to be overridden
+	 * @param overrides Overrides
+	 */
+	@SuppressWarnings("unchecked")
+	@VisibleForTesting
+	static void overrideWith(Properties source, Properties overrides) {
+		overrideWith(source, ((Map) overrides));
 	}
 
 	private static Optional<URL> getResource(String resourceName) {

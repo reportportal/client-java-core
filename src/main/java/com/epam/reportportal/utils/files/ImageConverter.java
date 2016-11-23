@@ -91,7 +91,7 @@ public class ImageConverter {
 
 		AutoDetectParser parser = new AutoDetectParser();
 		Detector detector = parser.getDetector();
-		MediaType mediaType = null;
+		MediaType mediaType;
 		try {
 			mediaType = detector.detect(TikaInputStream.get(fileContent), new Metadata());
 		} catch (Exception e) {
