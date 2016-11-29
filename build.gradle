@@ -4,8 +4,8 @@ plugins {
 }
 apply plugin: 'java'
 apply from: 'release.gradle'
-sourceCompatibility = 1.6
-targetCompatibility = 1.6
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
 
 description = 'EPAM Report portal. Client'
 
@@ -17,7 +17,7 @@ repositories {
 dependencies {
     compile 'com.epam.reportportal:commons-model:2.6.0'
     compile 'com.google.guava:guava:18.0'
-    compile 'com.epam.reportportal:rest-client-core:1.0.3'
+    compile 'com.epam.reportportal:rest-client-core:1.0.4'
     compile 'com.google.inject:guice:3.0'
     compile 'org.apache.tika:tika-core:1.4'
     compile 'org.slf4j:slf4j-api:1.7.2'
