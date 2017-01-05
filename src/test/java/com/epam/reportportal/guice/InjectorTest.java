@@ -20,17 +20,24 @@
  */
 package com.epam.reportportal.guice;
 
+import com.epam.reportportal.restclient.endpoint.RestEndpoint;
+import com.epam.reportportal.restclient.endpoint.exception.RestEndpointIOException;
+import com.epam.reportportal.service.BatchedReportPortalService;
 import com.epam.reportportal.service.ReportPortalService;
+import com.google.common.collect.ImmutableList;
+import com.google.inject.AbstractModule;
+import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.Mockito;
 
-import com.epam.reportportal.service.BatchedReportPortalService;
+import java.lang.reflect.Type;
+import java.util.List;
 
 /**
  * Test base injector for report portal related stuff
- * 
+ *
  * @author Andrei Varabyeu
- * 
  */
 public class InjectorTest {
 
@@ -41,5 +48,37 @@ public class InjectorTest {
 
 		Assert.assertEquals(service1, service2);
 
+	}
+
+	@Test
+	public void testOverrideJvmVar() throws RestEndpointIOException {
+		System.setProperty("rp.extension", "com.epam.reportportal.guice.InjectorTest$OverrideModule");
+		ReportPortalService rpService = new BaseInjector(new ReportPortalClientModule()).getBean(ReportPortalService.class);
+		Assert.assertEquals(rpService, rpService);
+		List<String> mockedTags = rpService.getAllTags();
+		Assert.assertThat("Incorrect mock!", mockedTags, Matchers.hasItem("mockedTag"));
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void testOverrideJvmVarNegative() throws RestEndpointIOException {
+		System.setProperty("rp.extension", "com.epam.reportportal.guice.InjectorTest");
+		new BaseInjector(new ReportPortalClientModule()).getBean(ReportPortalService.class);
+	}
+
+	public static class OverrideModule extends AbstractModule {
+
+		@Override
+		protected void configure() {
+			RestEndpoint mock = Mockito.mock(RestEndpoint.class);
+
+			try {
+				Mockito.when(mock.get(Mockito.anyString(), Mockito.<Type>any()))
+						.thenReturn(ImmutableList.builder().add("mockedTag").build());
+			} catch (RestEndpointIOException e) {
+				e.printStackTrace();
+			}
+
+			binder().bind(RestEndpoint.class).toInstance(mock);
+		}
 	}
 }
