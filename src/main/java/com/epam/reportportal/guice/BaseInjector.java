@@ -42,6 +42,8 @@ import java.util.List;
  */
 public class BaseInjector {
 
+	private static final String RP_EXTENSION_PROPERTY_NAME = "rp.extension";
+
 	/**
 	 * Guice BaseInjector
 	 */
@@ -51,7 +53,7 @@ public class BaseInjector {
 	 * Creates default report portal injector
 	 */
 	protected BaseInjector(Module... module) {
-		String extensions = System.getProperty("rp.extension", System.getenv("rp.extension"));
+		String extensions = System.getProperty(RP_EXTENSION_PROPERTY_NAME, System.getenv(RP_EXTENSION_PROPERTY_NAME));
 		if (!Strings.isNullOrEmpty(extensions)) {
 			List<Module> extensionModules = buildExtensions(extensions);
 			injector = Guice.createInjector(Modules.override(module).with(extensionModules));
