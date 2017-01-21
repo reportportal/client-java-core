@@ -26,8 +26,8 @@ package com.epam.reportportal.utils.properties;
 public enum ListenerProperty {
 
 	//@formatter:off
-	BASE_URL("rp.endpoint", false),
-	PROJECT_NAME("rp.project", false),
+	BASE_URL("rp.endpoint", true),
+	PROJECT_NAME("rp.project", true),
 	BATCH_SIZE_LOGS("rp.batch.size.logs", false),
 	LAUNCH_NAME("rp.launch", false),
 	LAUNCH_TAGS("rp.tags", false),
@@ -38,7 +38,7 @@ public enum ListenerProperty {
 	MODE("rp.mode", false),
 	ENABLE("rp.enable", false),
 	SKIPPED_AS_ISSUE("rp.skipped.issue", false),
-	UUID("rp.uuid",false),
+	UUID("rp.uuid",true),
 	// http proxy
 	HTTP_PROXY_HOST("http.proxyHost",false),
 	HTTP_PROXY_PORT("http.proxyPort",false),

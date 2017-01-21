@@ -20,23 +20,41 @@
  */
 package com.epam.reportportal.listeners;
 
+import com.epam.reportportal.service.ReportPortalClient;
+import com.epam.ta.reportportal.ws.model.log.SaveLogRQ;
+import reactor.core.publisher.Mono;
+
+import java.util.Optional;
+import java.util.function.Function;
+
 /**
  * This context contains currently running item id
- * 
  */
 public class ReportPortalListenerContext {
 
-	private static ThreadLocal<String> runningNowItemId = new ThreadLocal<String>();
+    private static ThreadLocal<LoggingContext> LOGGING_CONTEXT = new ThreadLocal<>();
 
-	private ReportPortalListenerContext() {
-	}
+    private ReportPortalListenerContext() {
+    }
 
-	public static String getRunningNowItemId() {
-		return runningNowItemId.get();
-	}
+    public static Mono<Void> getLoggingSubscription() {
+        return LOGGING_CONTEXT.get().loggingSubscription;
+    }
 
-	public static void setRunningNowItemId(String runningStepId) {
-		runningNowItemId.set(runningStepId);
-	}
+    public static void emitLog(Function<String, SaveLogRQ> logSupplier) {
+        Optional.ofNullable(LOGGING_CONTEXT.get()).ifPresent(lc -> lc.emitLog(logSupplier));
+    }
+
+    public static void stopLogging() {
+        Optional.ofNullable(LOGGING_CONTEXT.get()).ifPresent(c -> c.logsEmitter.complete());
+    }
+
+    public static void init(Mono<String> itemId, ReportPortalClient client) {
+        LOGGING_CONTEXT.set(new LoggingContext(itemId, client));
+    }
+
+    public static void cleanUp() {
+        LOGGING_CONTEXT.set(null);
+    }
 
 }

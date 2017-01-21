@@ -23,36 +23,49 @@ package com.epam.reportportal.service;
 import com.epam.reportportal.exception.ReportPortalClientException;
 import com.epam.reportportal.exception.ReportPortalServerException;
 import com.epam.ta.reportportal.ws.model.ErrorRS;
-import com.epam.reportportal.restclient.endpoint.DefaultErrorHandler;
-import com.epam.reportportal.restclient.endpoint.Serializer;
-import com.epam.reportportal.restclient.endpoint.exception.RestEndpointIOException;
+import com.github.avarabyeu.restendpoint.http.DefaultErrorHandler;
+import com.github.avarabyeu.restendpoint.http.HttpMethod;
+import com.github.avarabyeu.restendpoint.http.exception.SerializerException;
+import com.github.avarabyeu.restendpoint.serializer.Serializer;
+import com.google.common.base.Throwables;
+
+import java.net.URI;
 
 /**
  * Report Portal Error Handler<br>
  * Converts error from Endpoint to ReportPortal-related errors
- * 
+ *
  * @author Andrei Varabyeu
- * 
  */
 public class ReportPortalErrorHandler extends DefaultErrorHandler {
 
-	private Serializer serializer;
+    private Serializer serializer;
 
-	public ReportPortalErrorHandler(Serializer serializer) {
-		this.serializer = serializer;
-	}
+    public ReportPortalErrorHandler(Serializer serializer) {
+        this.serializer = serializer;
+    }
 
-	@Override
-	protected void handleClientError(int statusCode, String statusMessage, byte[] errorBody) throws RestEndpointIOException {
-		throw new ReportPortalClientException(statusCode, statusMessage, deserializeError(errorBody));
-	}
+    @Override
+    protected void handleClientError(URI requestUri, HttpMethod requestMethod, int statusCode, String statusMessage,
+            byte[] errorBody) {
+        try {
+            throw new ReportPortalClientException(statusCode, statusMessage, deserializeError(errorBody));
+        } catch (SerializerException e) {
+            throw Throwables.propagate(e);
+        }
+    }
 
-	@Override
-	protected void handleServerError(int statusCode, String statusMessage, byte[] errorBody) throws RestEndpointIOException {
-		throw new ReportPortalServerException(statusCode, statusMessage, deserializeError(errorBody));
-	}
+    @Override
+    protected void handleServerError(URI requestUri, HttpMethod requestMethod, int statusCode, String statusMessage,
+            byte[] errorBody) {
+        try {
+            throw new ReportPortalServerException(statusCode, statusMessage, deserializeError(errorBody));
+        } catch (SerializerException e) {
+            throw Throwables.propagate(e);
+        }
+    }
 
-	private ErrorRS deserializeError(byte[] content) throws RestEndpointIOException {
-		return serializer.deserialize(content, ErrorRS.class);
-	}
+    private ErrorRS deserializeError(byte[] content) throws SerializerException {
+        return serializer.deserialize(content, ErrorRS.class);
+    }
 }

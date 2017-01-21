@@ -20,10 +20,10 @@
  */
 package com.epam.reportportal.listeners;
 
+import com.github.avarabyeu.restendpoint.http.exception.RestEndpointIOException;
 import org.slf4j.Logger;
 
 import com.epam.reportportal.exception.ReportPortalException;
-import com.epam.reportportal.restclient.endpoint.exception.RestEndpointIOException;
 import com.epam.ta.reportportal.ws.model.launch.Mode;
 import com.google.common.base.Throwables;
 

@@ -21,7 +21,7 @@
 package com.epam.reportportal.utils.properties;
 
 import com.epam.reportportal.exception.InternalReportPortalClientException;
-import com.epam.reportportal.restclient.endpoint.IOUtils;
+import com.github.avarabyeu.restendpoint.http.IOUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;

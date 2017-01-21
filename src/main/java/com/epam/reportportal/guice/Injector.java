@@ -37,13 +37,7 @@ public class Injector extends BaseInjector {
 	 * Here is implementation of singleton with lazy init based on Google Guava
 	 * Suppliers
 	 */
-	private static Supplier<Injector> instance = Suppliers.memoize(new Supplier<Injector>() {
-
-		@Override
-		public Injector get() {
-			return new Injector();
-		}
-	});
+	private static Supplier<Injector> instance = Suppliers.memoize(Injector::new);
 
 	public static Injector getInstance() {
 		return instance.get();
