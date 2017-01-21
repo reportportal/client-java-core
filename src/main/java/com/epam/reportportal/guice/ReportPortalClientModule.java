@@ -129,10 +129,10 @@ public class ReportPortalClientModule implements Module {
 		List<HttpRequestInterceptor> interceptors = new ArrayList<HttpRequestInterceptor>(1);
 		interceptors.add(new BearerAuthorizationInterceptor(uuid));
 
-		if (HTTPS.equals(new URL(baseUrl).getProtocol())) {
-			if (null == keyStore) {
+		if (HTTPS.equals(new URL(baseUrl).getProtocol()) && keyStore != null) {
+			if (null == keyStorePassword) {
 				throw new InternalReportPortalClientException(
-						"You should provide keystore parameter [" + ListenerProperty.KEYSTORE_RESOURCE + "] if you use HTTPS protocol");
+						"You should provide keystore password parameter [" + ListenerProperty.KEYSTORE_PASSWORD + "] if you use HTTPS protocol");
 			}
 			httpClientFactory = new SslClientFactory(null, keyStore, keyStorePassword, interceptors);
 		} else {
