@@ -99,6 +99,14 @@ public class BaseInjector {
 		return injector.getInstance(Key.get(String.class, new ListenerPropertyValueImpl(key)));
 	}
 
+    /**
+     * Injects members into provided instance
+     * @param object Instance members of need to be injected
+     */
+	public void injectMembers(Object object) {
+		this.injector.injectMembers(object);
+	}
+
 	/**
 	 * Builds extensions based on environment variable
 	 *
