@@ -45,6 +45,10 @@ public class Injector extends BaseInjector {
 		}
 	});
 
+	public static Injector wrap(com.google.inject.Injector nativeInjector) {
+		return new Injector(nativeInjector);
+	}
+
 	public static Injector getInstance() {
 		return instance.get();
 	}
