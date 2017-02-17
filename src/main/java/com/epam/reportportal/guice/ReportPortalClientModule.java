@@ -20,27 +20,39 @@
  */
 package com.epam.reportportal.guice;
 
-import com.epam.reportportal.apache.http.HttpRequestInterceptor;
-import com.epam.reportportal.apache.http.HttpResponse;
-import com.epam.reportportal.apache.http.client.HttpClient;
-import com.epam.reportportal.exception.InternalReportPortalClientException;
 import com.epam.reportportal.listeners.ListenerParameters;
 import com.epam.reportportal.message.HashMarkSeparatedMessageParser;
 import com.epam.reportportal.message.MessageParser;
-import com.epam.reportportal.restclient.endpoint.*;
-import com.epam.reportportal.restclient.serializer.Jackson2Serializer;
-import com.epam.reportportal.service.BatchedReportPortalService;
 import com.epam.reportportal.service.ReportPortalErrorHandler;
 import com.epam.reportportal.service.ReportPortalService;
 import com.epam.reportportal.utils.properties.ListenerProperty;
 import com.epam.reportportal.utils.properties.PropertiesLoader;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.avarabyeu.restendpoint.http.ErrorHandler;
+import com.github.avarabyeu.restendpoint.http.HttpClientRestEndpoint;
+import com.github.avarabyeu.restendpoint.http.RestEndpoint;
+import com.github.avarabyeu.restendpoint.serializer.ByteArraySerializer;
+import com.github.avarabyeu.restendpoint.serializer.Serializer;
+import com.github.avarabyeu.restendpoint.serializer.json.JacksonSerializer;
 import com.google.common.collect.Lists;
-import com.google.inject.*;
+import com.google.inject.Binder;
+import com.google.inject.Key;
+import com.google.inject.Module;
+import com.google.inject.Provider;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import com.google.inject.name.Named;
 import com.google.inject.name.Names;
+import org.apache.http.HttpException;
+import org.apache.http.HttpRequest;
+import org.apache.http.HttpRequestInterceptor;
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClients;
+import org.apache.http.nio.client.HttpAsyncClient;
+import org.apache.http.protocol.HttpContext;
 
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -52,144 +64,150 @@ import java.util.List;
 
 public class ReportPortalClientModule implements Module {
 
-	public static final String API_BASE = "/api/v1";
-	private static final String HTTPS = "https";
+    public static final String API_BASE = "/api/v1";
+    private static final String HTTPS = "https";
 
-	@Override
-	public void configure(Binder binder) {
-		Names.bindProperties(binder, PropertiesLoader.getProperties());
-		for (final ListenerProperty listenerProperty : ListenerProperty.values()) {
-			binder.bind(Key.get(String.class, ListenerPropertyBinder.named(listenerProperty))).toProvider(new Provider<String>() {
+    @Override
+    public void configure(Binder binder) {
+        Names.bindProperties(binder, PropertiesLoader.getProperties());
+        for (final ListenerProperty listenerProperty : ListenerProperty.values()) {
+            binder.bind(Key.get(String.class, ListenerPropertyBinder.named(listenerProperty)))
+                    .toProvider(new Provider<String>() {
+                        @Override
+                        public String get() {
+                            return PropertiesLoader.getProperty(listenerProperty.getPropertyName());
+                        }
+                    });
+        }
+    }
 
-				@Override
-				public String get() {
-					return PropertiesLoader.getProperty(listenerProperty.getPropertyName());
-				}
-			});
-		}
-	}
+    /**
+     * Default {@link ReportPortalErrorHandler
+     * ReportPortalErrorHandler(Serializer)} binding
+     *
+     * @param serializer Default serializer for error handler
+     */
+    @Provides
+    @Singleton
+    public ErrorHandler provideErrorHandler(Serializer serializer) {
+        return new ReportPortalErrorHandler(serializer);
+    }
 
-	/**
-	 * Default {@link ReportPortalErrorHandler
-	 * ReportPortalErrorHandler(Serializer)} binding
-	 *
-	 * @param serializer Default serializer for error handler
-	 */
-	@Provides
-	@Singleton
-	public ErrorHandler<HttpResponse> provideErrorHandler(Serializer serializer) {
-		return new ReportPortalErrorHandler(serializer);
-	}
+    /**
+     * Default {@link Serializer} binding
+     */
+    @Provides
+    @Singleton
+    public Serializer provideSeriazer() {
+        return new JacksonSerializer(new ObjectMapper());
+    }
 
-	/**
-	 * Default {@link com.epam.reportportal.restclient.endpoint.Serializer} binding
-	 */
-	@Provides
-	@Singleton
-	public Serializer provideSeriazer() {
-		return new Jackson2Serializer(new ObjectMapper());
-	}
+    @Provides
+    @Singleton
+    @Named("serializers")
+    public List<Serializer> provideSeriazers(Serializer defaultSerializer) {
+        return Lists.newArrayList(defaultSerializer, new ByteArraySerializer());
+    }
 
-	@Provides
-	@Singleton
-	@Named("serializers")
-	public List<Serializer> provideSeriazers(Serializer defaultSerializer) {
-		return Lists.newArrayList(defaultSerializer, new ByteArraySerializer());
-	}
+    /**
+     * Default {@link com.github.avarabyeu.restendpoint.http.RestEndpoint} binding
+     *
+     * @param serializers  Set of serializers to marshal request/response body
+     * @param errorHandler Handler for 4xx/5xx HTTP responses
+     * @param baseUrl      Base url of application
+     */
+    @Provides
+    public RestEndpoint provideRestEndpoint(CloseableHttpAsyncClient httpClient, @Named("serializers") List<Serializer> serializers,
+            ErrorHandler errorHandler, @ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl) {
+        return new HttpClientRestEndpoint(httpClient, serializers, errorHandler, baseUrl);
+    }
 
-	/**
-	 * Default {@link com.epam.reportportal.restclient.endpoint.RestEndpoint} binding
-	 *
-	 * @param serializers  Set of serializers to marshal request/response body
-	 * @param errorHandler Handler for 4xx/5xx HTTP responses
-	 * @param baseUrl      Base url of application
-	 */
-	@Provides
-	public RestEndpoint provideRestEndpoint(HttpClient httpClient, @Named("serializers") List<Serializer> serializers,
-			ErrorHandler<HttpResponse> errorHandler, @ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl) {
-		return new HttpClientRestEndpoint(httpClient, serializers, errorHandler, baseUrl);
-	}
+    /**
+     * Default {@link HttpAsyncClient} binding
+     *
+     * @param baseUrl          Base URL of application
+     * @param keyStore         Path to keystore
+     * @param keyStorePassword Keystore password
+     * @throws MalformedURLException If URL is not correct
+     */
+    @Provides
+    public CloseableHttpAsyncClient provideHttpClient(@ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl,
+            @Nullable @ListenerPropertyValue(ListenerProperty.KEYSTORE_RESOURCE) String keyStore,
+            @Nullable @ListenerPropertyValue(ListenerProperty.KEYSTORE_PASSWORD) String keyStorePassword,
+            @ListenerPropertyValue(ListenerProperty.UUID) final String uuid) throws MalformedURLException {
 
-	/**
-	 * Default {@link com.epam.reportportal.apache.http.client.HttpClient} binding
-	 *
-	 * @param baseUrl          Base URL of application
-	 * @param keyStore         Path to keystore
-	 * @param keyStorePassword Keystore password
-	 * @throws MalformedURLException If URL is not correct
-	 */
-	@Provides
-	public HttpClient provideHttpClient(@ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl,
-			@Nullable @ListenerPropertyValue(ListenerProperty.KEYSTORE_RESOURCE) String keyStore,
-			@Nullable @ListenerPropertyValue(ListenerProperty.KEYSTORE_PASSWORD) String keyStorePassword,
-			@ListenerPropertyValue(ListenerProperty.UUID) String uuid) throws MalformedURLException {
+        //HttpClientFactory httpClientFactory;
 
-		HttpClientFactory httpClientFactory;
+//        List<HttpRequestInterceptor> interceptors = new ArrayList<HttpRequestInterceptor>(1);
+//        interceptors.add(new BearerAuthorizationInterceptor(uuid));
 
-		List<HttpRequestInterceptor> interceptors = new ArrayList<HttpRequestInterceptor>(1);
-		interceptors.add(new BearerAuthorizationInterceptor(uuid));
+//        if (HTTPS.equals(new URL(baseUrl).getProtocol()) && keyStore != null) {
+//            if (null == keyStorePassword) {
+//                throw new InternalReportPortalClientException(
+//                        "You should provide keystore password parameter [" + ListenerProperty.KEYSTORE_PASSWORD
+//                                + "] if you use HTTPS protocol");
+//            }
+//            httpClientFactory = new SslClientFactory(null, keyStore, keyStorePassword, interceptors);
+//        } else {
+//            httpClientFactory = new AuthClientFactory(null, interceptors);
+//        }
 
-		if (HTTPS.equals(new URL(baseUrl).getProtocol()) && keyStore != null) {
-			if (null == keyStorePassword) {
-				throw new InternalReportPortalClientException(
-						"You should provide keystore password parameter [" + ListenerProperty.KEYSTORE_PASSWORD + "] if you use HTTPS protocol");
-			}
-			httpClientFactory = new SslClientFactory(null, keyStore, keyStorePassword, interceptors);
-		} else {
-			httpClientFactory = new AuthClientFactory(null, interceptors);
-		}
+        return HttpAsyncClients.custom().addInterceptorLast(new HttpRequestInterceptor() {
+            @Override
+            public void process(HttpRequest request, HttpContext context) throws HttpException, IOException {
+                request.addHeader("Authorization", "bearer " + uuid);
+            }
+        }).build();
+    }
 
-		return httpClientFactory.createHttpClient();
-	}
+    /**
+     * Provides wrapper for report portal properties
+     */
+    @Provides
+    @Singleton
+    public ListenerParameters provideListenerProperties() {
+        return new ListenerParameters(PropertiesLoader.getProperties());
+    }
 
-	/**
-	 * Provides wrapper for report portal properties
-	 */
-	@Provides
-	@Singleton
-	public ListenerParameters provideListenerProperties() {
-		return new ListenerParameters(PropertiesLoader.getProperties());
-	}
+    /**
+     * Provides junit-style reportportal service
+     *
+     * @param restEndpoint {@link RestEndpoint} instance
+     */
+//    @Provides
+//    @Singleton
+//    public BatchedReportPortalService provideReportPortalService(RestEndpoint restEndpoint,
+//            @ListenerPropertyValue(ListenerProperty.PROJECT_NAME) String project,
+//            @ListenerPropertyValue(ListenerProperty.BATCH_SIZE_LOGS) String batchLogsSize) { // NOSONAR
+//        int logsBatchSize;
+//        try {
+//            logsBatchSize = Integer.parseInt(batchLogsSize);
+//        } catch (NumberFormatException e) {
+//            logsBatchSize = 10;
+//        }
+//        return new BatchedReportPortalService(restEndpoint, API_BASE, project, logsBatchSize);
+//    }
 
-	/**
-	 * Provides junit-style reportportal service
-	 *
-	 * @param restEndpoint {@link RestEndpoint} instance
-	 */
-	@Provides
-	@Singleton
-	public BatchedReportPortalService provideReportPortalService(RestEndpoint restEndpoint,
-			@ListenerPropertyValue(ListenerProperty.PROJECT_NAME) String project,
-			@ListenerPropertyValue(ListenerProperty.BATCH_SIZE_LOGS) String batchLogsSize) { // NOSONAR
-		int logsBatchSize;
-		try {
-			logsBatchSize = Integer.parseInt(batchLogsSize);
-		} catch (NumberFormatException e) {
-			logsBatchSize = 10;
-		}
-		return new BatchedReportPortalService(restEndpoint, API_BASE, project, logsBatchSize);
-	}
+    /**
+     * Binds the same instance for {@link ReportPortalService} interface.
+     * Guice cannot bind one implementation to two interfaces automatically
+     *
+     * @param reportPortalService Instance for binding
+     * @return {@link ReportPortalService} instance
+     */
+//    @Provides
+//    @Singleton
+//    public ReportPortalService provideRepoPortalService(BatchedReportPortalService reportPortalService) {
+//        return reportPortalService;
+//    }
 
-	/**
-	 * Binds the same instance for {@link ReportPortalService} interface.
-	 * Guice cannot bind one implementation to two interfaces automatically
-	 *
-	 * @param reportPortalService Instance for binding
-	 * @return {@link ReportPortalService} instance
-	 */
-	@Provides
-	@Singleton
-	public ReportPortalService provideRepoPortalService(BatchedReportPortalService reportPortalService) {
-		return reportPortalService;
-	}
-
-	/**
-	 * provides message parser
-	 */
-	@Provides
-	@Singleton
-	public MessageParser provideMessageParser() {
-		return new HashMarkSeparatedMessageParser();
-	}
+    /**
+     * provides message parser
+     */
+    @Provides
+    @Singleton
+    public MessageParser provideMessageParser() {
+        return new HashMarkSeparatedMessageParser();
+    }
 
 }

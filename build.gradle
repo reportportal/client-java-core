@@ -4,6 +4,7 @@ plugins {
 }
 apply plugin: 'java'
 apply from: 'release.gradle'
+
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
@@ -12,13 +13,17 @@ description = 'EPAM Report portal. Client'
 repositories {
     jcenter()
     maven { url "http://dl.bintray.com/epam/reportportal" }
+    maven { url "https://jitpack.io" }
 
 }
 dependencies {
-    compile 'com.epam.reportportal:commons-model:2.6.0'
-    compile 'com.google.guava:guava:18.0'
-    compile 'com.epam.reportportal:rest-client-core:1.0.4'
-    compile 'com.google.inject:guice:3.0'
+    //compile 'com.epam.reportportal:commons-model:2.6.0'
+    compile 'com.github.reportportal:commons-model:22dbc6e91d'
+
+
+    compile 'com.google.guava:guava:20.0'
+    compile 'com.github.avarabyeu:restendpoint-jdk6:0.2.0'
+    compile 'com.google.inject:guice:4.1.0'
     compile 'org.apache.tika:tika-core:1.4'
     compile 'org.slf4j:slf4j-api:1.7.2'
     testCompile 'junit:junit:4.12'

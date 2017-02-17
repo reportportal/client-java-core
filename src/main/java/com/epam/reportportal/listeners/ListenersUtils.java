@@ -20,10 +20,10 @@
  */
 package com.epam.reportportal.listeners;
 
+import com.github.avarabyeu.restendpoint.http.exception.RestEndpointIOException;
 import org.slf4j.Logger;
 
 import com.epam.reportportal.exception.ReportPortalException;
-import com.epam.reportportal.restclient.endpoint.exception.RestEndpointIOException;
 import com.epam.ta.reportportal.ws.model.launch.Mode;
 import com.google.common.base.Throwables;
 
@@ -40,7 +40,7 @@ public class ListenersUtils {
 
 	/**
 	 * Handle exceptions in the listeners. log error in case of
-	 * {@link ReportPortalException} or {@link RestEndpointIOException} or
+	 * {@link ReportPortalException} or {@link com.github.avarabyeu.restendpoint.http.exception.RestEndpointIOException} or
 	 * propagates exception exactly as-is, if and only if it is an instance of
 	 * {@link RuntimeException} or {@link Error}.
 	 * 

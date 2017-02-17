@@ -28,11 +28,11 @@ import static org.mockito.Mockito.*;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
+import com.github.avarabyeu.restendpoint.http.exception.RestEndpointIOException;
 import org.junit.After;
 import org.junit.Test;
 import org.slf4j.Logger;
 
-import com.epam.reportportal.restclient.endpoint.exception.RestEndpointIOException;
 
 public class ListenerUtilsTest {
 

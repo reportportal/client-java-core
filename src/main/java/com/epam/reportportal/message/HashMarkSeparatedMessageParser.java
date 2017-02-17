@@ -20,10 +20,10 @@
  */
 package com.epam.reportportal.message;
 
-import com.epam.reportportal.apache.commons.codec.binary.Base64;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Files;
 import com.google.common.io.Resources;
@@ -55,7 +55,7 @@ public class HashMarkSeparatedMessageParser implements MessageParser {
 		BASE64 {
 			@Override
 			public ByteSource toByteSource(final String data) {
-				return ByteSource.wrap(Base64.decodeBase64(data));
+				return ByteSource.wrap(BaseEncoding.base64().decode(data));
 			}
 		},
 		RESOURCE {

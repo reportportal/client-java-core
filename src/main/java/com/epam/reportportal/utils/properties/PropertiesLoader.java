@@ -21,11 +21,11 @@
 package com.epam.reportportal.utils.properties;
 
 import com.epam.reportportal.exception.InternalReportPortalClientException;
-import com.epam.reportportal.restclient.endpoint.IOUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
+import com.google.common.io.Closer;
 import com.google.common.io.Resources;
 
 import java.io.*;
@@ -125,15 +125,17 @@ public class PropertiesLoader {
 	private static Properties loadFromFile() throws IOException {
 		Properties props = new Properties();
 		File propertiesFile = new File(PATH);
-		InputStream is = null;
+		InputStream is;
+		Closer closer = Closer.create();
 		try {
 			is = propertiesFile.exists() ? new FileInputStream(propertiesFile) : PropertiesLoader.class.getResourceAsStream(INNER_PATH);
+			closer.register(is);
 			if (is == null) {
 				throw new FileNotFoundException(INNER_PATH);
 			}
 			props.load(is);
 		} finally {
-			IOUtils.closeQuietly(is);
+			closer.close();
 		}
 		return props;
 	}
