@@ -1,6 +1,7 @@
 package com.epam.reportportal.service;
 
 import com.epam.ta.reportportal.ws.model.BatchElementCreatedRS;
+import com.epam.ta.reportportal.ws.model.BatchSaveOperatingRS;
 import com.epam.ta.reportportal.ws.model.EntryCreatedRS;
 import com.epam.ta.reportportal.ws.model.FinishExecutionRQ;
 import com.epam.ta.reportportal.ws.model.FinishTestItemRQ;
@@ -42,5 +43,5 @@ public interface ReportPortalClient {
     Maybe<EntryCreatedRS> log(@Body SaveLogRQ rq);
 
     @Request(method = POST, url = "/log/")
-    Maybe<BatchElementCreatedRS> log(@Body @Multipart MultiPartRequest rq);
+    Maybe<BatchSaveOperatingRS> log(@Body @Multipart MultiPartRequest rq);
 }

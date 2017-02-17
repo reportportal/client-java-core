@@ -24,42 +24,53 @@ import com.epam.ta.reportportal.ws.model.ErrorRS;
 
 /**
  * Base ReportPortal. Used for unclassified errors
- * 
+ *
  * @author Andrei Varabyeu
- * 
  */
 public class ReportPortalException extends RuntimeException {
-	private static final long serialVersionUID = -3747137063782963453L;
+    private static final long serialVersionUID = -3747137063782963453L;
 
-	/** HTTP Status Code */
-	protected int statusCode;
-	/** HTTP Status Message */
-	protected String statusMessage;
-	/** HTTP Error Response Body */
-	protected ErrorRS errorContent;
+    /**
+     * HTTP Status Code
+     */
+    protected int statusCode;
+    /**
+     * HTTP Status Message
+     */
+    protected String statusMessage;
+    /**
+     * HTTP Error Response Body
+     */
+    protected ErrorRS errorContent;
 
-	public ReportPortalException(int statusCode, String statusMessage, ErrorRS errorContent) {
-		this.statusCode = statusCode;
-		this.statusMessage = statusMessage;
-		this.errorContent = errorContent;
-	}
+    public ReportPortalException(int statusCode, String statusMessage, ErrorRS errorContent) {
+        this.statusCode = statusCode;
+        this.statusMessage = statusMessage;
+        this.errorContent = errorContent;
+    }
 
-	public int getStatusCode() {
-		return statusCode;
-	}
+    public int getStatusCode() {
+        return statusCode;
+    }
 
-	public ErrorRS getErrorContent() {
-		return errorContent;
-	}
+    public ErrorRS getErrorContent() {
+        return errorContent;
+    }
 
-	public String getStatusMessage() {
-		return statusMessage;
-	}
+    public String getStatusMessage() {
+        return statusMessage;
+    }
 
-	@Override
-	public String getMessage() {
-		return "Report Portal returned error\n" + "Status code: " + statusCode + "\n" + "Status message: " + statusMessage + "\n"
-				+ "Error Message: " + errorContent.getMessage() + "\n" + "Error Type: " + errorContent.getErrorType() + "\n"
-				+ "Stack Trace: ";
-	}
+    @Override
+    public String getMessage() {
+        final StringBuilder builder = new StringBuilder();
+        builder.append("Report Portal returned error\n")
+                .append("Status code: ").append(statusCode).append("\n")
+                .append("Status message: ").append(statusMessage).append("\n");
+        if (null != errorContent) {
+            builder.append("Error Message: ").append(errorContent.getMessage()).append("\n")
+                    .append("Error Type: ").append(errorContent.getErrorType()).append("\n");
+        }
+        return builder.toString();
+    }
 }

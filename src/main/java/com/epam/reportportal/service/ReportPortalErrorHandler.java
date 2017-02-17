@@ -20,7 +20,6 @@
  */
 package com.epam.reportportal.service;
 
-import com.epam.reportportal.exception.InternalReportPortalClientException;
 import com.epam.reportportal.exception.ReportPortalClientException;
 import com.epam.ta.reportportal.ws.model.ErrorRS;
 import com.github.avarabyeu.restendpoint.http.DefaultErrorHandler;
@@ -53,16 +52,17 @@ public class ReportPortalErrorHandler extends DefaultErrorHandler {
     }
 
     private ErrorRS deserializeError(ByteSource contentSource) throws RestEndpointIOException {
+        byte[] content;
         try {
-            byte[] content = contentSource.read();
+            content = contentSource.read();
             if (null != content) {
                 return serializer.deserialize(content, ErrorRS.class);
             } else {
                 return null;
             }
 
-        } catch (IOException e) {
-            throw new InternalReportPortalClientException("Unable to deserialize body", e);
+        } catch (IOException | RestEndpointIOException e) {
+            return null;
         }
 
     }

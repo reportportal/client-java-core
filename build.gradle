@@ -20,9 +20,11 @@ dependencies {
     //compile 'com.epam.reportportal:commons-model:2.6.0'
     compile 'com.github.reportportal:commons-model:22dbc6e91d'
 
-
     compile 'com.google.guava:guava:20.0'
     compile 'com.github.avarabyeu:restendpoint-jdk6:0.2.0'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.8.6'
+//    compile 'com.fasterxml.jackson.core:jackson-core:2.8.6'
+
     compile 'com.google.inject:guice:4.1.0'
     compile 'org.apache.tika:tika-core:1.4'
     compile 'org.slf4j:slf4j-api:1.7.2'

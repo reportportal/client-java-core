@@ -23,18 +23,22 @@ package com.epam.reportportal.guice;
 import com.epam.reportportal.listeners.ListenerParameters;
 import com.epam.reportportal.message.HashMarkSeparatedMessageParser;
 import com.epam.reportportal.message.MessageParser;
+import com.epam.reportportal.service.ReportPortal;
+import com.epam.reportportal.service.ReportPortalClient;
 import com.epam.reportportal.service.ReportPortalErrorHandler;
-import com.epam.reportportal.service.ReportPortalService;
 import com.epam.reportportal.utils.properties.ListenerProperty;
 import com.epam.reportportal.utils.properties.PropertiesLoader;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.avarabyeu.restendpoint.http.ErrorHandler;
 import com.github.avarabyeu.restendpoint.http.HttpClientRestEndpoint;
 import com.github.avarabyeu.restendpoint.http.RestEndpoint;
+import com.github.avarabyeu.restendpoint.http.RestEndpoints;
 import com.github.avarabyeu.restendpoint.serializer.ByteArraySerializer;
 import com.github.avarabyeu.restendpoint.serializer.Serializer;
 import com.github.avarabyeu.restendpoint.serializer.json.JacksonSerializer;
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.common.net.HttpHeaders;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -54,8 +58,6 @@ import org.apache.http.protocol.HttpContext;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -118,8 +120,9 @@ public class ReportPortalClientModule implements Module {
      */
     @Provides
     public RestEndpoint provideRestEndpoint(CloseableHttpAsyncClient httpClient, @Named("serializers") List<Serializer> serializers,
-            ErrorHandler errorHandler, @ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl) {
-        return new HttpClientRestEndpoint(httpClient, serializers, errorHandler, baseUrl);
+            ErrorHandler errorHandler, @ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl,
+            @ListenerPropertyValue(ListenerProperty.PROJECT_NAME) String project) {
+        return new HttpClientRestEndpoint(httpClient, serializers, errorHandler, baseUrl + "/" + project);
     }
 
     /**
@@ -155,7 +158,7 @@ public class ReportPortalClientModule implements Module {
         return HttpAsyncClients.custom().addInterceptorLast(new HttpRequestInterceptor() {
             @Override
             public void process(HttpRequest request, HttpContext context) throws HttpException, IOException {
-                request.addHeader("Authorization", "bearer " + uuid);
+                request.setHeader(HttpHeaders.AUTHORIZATION, "bearer " + uuid);
             }
         }).build();
     }
@@ -189,17 +192,17 @@ public class ReportPortalClientModule implements Module {
 //    }
 
     /**
-     * Binds the same instance for {@link ReportPortalService} interface.
+     * Binds the same instance for {@link ReportPortal} interface.
      * Guice cannot bind one implementation to two interfaces automatically
      *
      * @param reportPortalService Instance for binding
-     * @return {@link ReportPortalService} instance
+     * @return {@link ReportPortal} instance
      */
-//    @Provides
-//    @Singleton
-//    public ReportPortalService provideRepoPortalService(BatchedReportPortalService reportPortalService) {
-//        return reportPortalService;
-//    }
+    @Provides
+    @Singleton
+    public ReportPortalClient reportPortalClient(RestEndpoint restEndpoint) {
+        return RestEndpoints.forInterface(ReportPortalClient.class, restEndpoint);
+    }
 
     /**
      * provides message parser

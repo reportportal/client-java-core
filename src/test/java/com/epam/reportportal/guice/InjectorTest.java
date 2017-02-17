@@ -20,18 +20,16 @@
  */
 package com.epam.reportportal.guice;
 
-import com.epam.reportportal.service.ReportPortalService;
+import com.epam.reportportal.service.ReportPortal;
 import com.github.avarabyeu.restendpoint.http.RestEndpoint;
 import com.github.avarabyeu.restendpoint.http.exception.RestEndpointIOException;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.AbstractModule;
-import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.lang.reflect.Type;
-import java.util.List;
 
 /**
  * Test base injector for report portal related stuff
@@ -42,8 +40,8 @@ public class InjectorTest {
 
 	@Test
 	public void testSingletons() {
-//		ReportPortalService service1 = Injector.getInstance().getBean(ReportPortalService.class);
-//		ReportPortalService service2 = Injector.getInstance().getBean(BatchedReportPortalService.class);
+//		ReportPortal service1 = Injector.getInstance().getBean(ReportPortal.class);
+//		ReportPortal service2 = Injector.getInstance().getBean(BatchedReportPortalService.class);
 
 //		Assert.assertEquals(service1, service2);
 
@@ -52,7 +50,7 @@ public class InjectorTest {
 	@Test
 	public void testOverrideJvmVar() throws RestEndpointIOException {
 		System.setProperty("rp.extension", "com.epam.reportportal.guice.InjectorTest$OverrideModule");
-		ReportPortalService rpService = new BaseInjector(new ReportPortalClientModule()).getBean(ReportPortalService.class);
+		ReportPortal rpService = new BaseInjector(new ReportPortalClientModule()).getBean(ReportPortal.class);
 		Assert.assertEquals(rpService, rpService);
 //		List<String> mockedTags = rpService.getAllTags();
 //		Assert.assertThat("Incorrect mock!", mockedTags, Matchers.hasItem("mockedTag"));
@@ -61,7 +59,7 @@ public class InjectorTest {
 	@Test(expected = IllegalArgumentException.class)
 	public void testOverrideJvmVarNegative() throws RestEndpointIOException {
 		System.setProperty("rp.extension", "com.epam.reportportal.guice.InjectorTest");
-		new BaseInjector(new ReportPortalClientModule()).getBean(ReportPortalService.class);
+		new BaseInjector(new ReportPortalClientModule()).getBean(ReportPortal.class);
 	}
 
 	public static class OverrideModule extends AbstractModule {

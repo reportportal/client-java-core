@@ -28,7 +28,11 @@ import com.google.common.base.Supplier;
 import com.google.common.io.Closer;
 import com.google.common.io.Resources;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
@@ -42,13 +46,14 @@ import static com.google.common.base.Suppliers.memoize;
  * Load report portal launch start properties
  */
 public class PropertiesLoader {
+
 	public static final String INNER_PATH = "reportportal.properties";
 	public static final String PATH = "./reportportal.properties";
 	private static final String[] PROXY_PROPERTIES = { "http.proxyHost", "http.proxyPort", "http.nonProxyHosts", "https.proxyHost",
 			"https.proxyPort", "ftp.proxyHost", "ftp.proxyPort", "ftp.nonProxyHosts", "socksProxyHost", "socksProxyPort", "http.proxyUser",
 			"http.proxyPassword" };
 
-	private static Supplier<Properties> propertiesSupplier = memoize(new Supplier<Properties>() {
+	private static Supplier<Properties> PROPERTIES_SUPPLIER = memoize(new Supplier<Properties>() {
 		@Override
 		public Properties get() {
 			try {
@@ -66,7 +71,7 @@ public class PropertiesLoader {
 	 * @param propertyName Name of property
 	 */
 	public static String getProperty(String propertyName) {
-		return propertiesSupplier.get().getProperty(propertyName);
+		return PROPERTIES_SUPPLIER.get().getProperty(propertyName);
 	}
 
 	/**
@@ -74,7 +79,7 @@ public class PropertiesLoader {
 	 * environment variables.
 	 */
 	public static Properties getProperties() {
-		return propertiesSupplier.get();
+		return PROPERTIES_SUPPLIER.get();
 	}
 
 	/**
@@ -92,12 +97,6 @@ public class PropertiesLoader {
 		}
 		overrideWith(props, System.getProperties());
 		overrideWith(props, System.getenv());
-
-		/* Reload soapui properties if required */
-		Map<String, String> soapUIProperties = SoapUIPropertiesHolder.getSoapUIProperties();
-		if (soapUIProperties != null) {
-			overrideWith(props, soapUIProperties);
-		}
 
 		validateProperties(props);
 		reloadProperties(props);
@@ -126,31 +125,26 @@ public class PropertiesLoader {
 		Properties props = new Properties();
 		File propertiesFile = new File(PATH);
 		InputStream is;
-		Closer closer = Closer.create();
-		try {
-			is = propertiesFile.exists() ? new FileInputStream(propertiesFile) : PropertiesLoader.class.getResourceAsStream(INNER_PATH);
+		try (Closer closer = Closer.create()) {
+			is = propertiesFile.exists() ?
+					new FileInputStream(propertiesFile) :
+					PropertiesLoader.class.getResourceAsStream(INNER_PATH);
 			closer.register(is);
 			if (is == null) {
 				throw new FileNotFoundException(INNER_PATH);
 			}
 			props.load(is);
-		} finally {
-			closer.close();
 		}
 		return props;
 	}
 
 
 	/**
-	 * Validate that properties
-	 * {@link ListenerProperty#UUID}; {@link ListenerProperty#BASE_URL};
-	 * {@link ListenerProperty#PROJECT_NAME};
-	 * {@link ListenerProperty#LAUNCH_NAME}; not null
+	 * Validate required properties presence
 	 *
-	 * @param properties
+	 * @param properties Properties to be validated
 	 */
 	private static void validateProperties(Properties properties) {
-		// don't remove this code !!!
 		for (ListenerProperty listenerProperty : values()) {
 			if (listenerProperty.isRequired() && properties.getProperty(listenerProperty.getPropertyName()) == null) {
 				throw new IllegalArgumentException("Property '" + listenerProperty.getPropertyName() + "' should not be null.");
