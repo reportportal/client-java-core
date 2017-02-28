@@ -36,7 +36,6 @@ import com.github.avarabyeu.restendpoint.http.RestEndpoints;
 import com.github.avarabyeu.restendpoint.serializer.ByteArraySerializer;
 import com.github.avarabyeu.restendpoint.serializer.Serializer;
 import com.github.avarabyeu.restendpoint.serializer.json.JacksonSerializer;
-import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.net.HttpHeaders;
 import com.google.inject.Binder;

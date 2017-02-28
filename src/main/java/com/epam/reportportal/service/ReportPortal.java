@@ -26,7 +26,6 @@ import com.epam.ta.reportportal.ws.model.FinishTestItemRQ;
 import com.epam.ta.reportportal.ws.model.OperationCompletionRS;
 import com.epam.ta.reportportal.ws.model.StartTestItemRQ;
 import com.epam.ta.reportportal.ws.model.launch.StartLaunchRQ;
-import com.epam.ta.reportportal.ws.model.log.SaveLogRQ;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -55,13 +54,12 @@ public class ReportPortal {
         }
     };
 
-    private static final ThreadLocal<LoggingContext> LOGGING_CONTEXT = new ThreadLocal<>();
-
     /**
      * REST Client
      */
-    private ReportPortalClient reportPortalClient;
-    private LoadingCache<Maybe<String>, TreeItem> QUEUE = CacheBuilder.newBuilder().build(
+    private final ReportPortalClient rpClient;
+//    private final ReportPortalContext rpContext;
+    private final LoadingCache<Maybe<String>, TreeItem> QUEUE = CacheBuilder.newBuilder().build(
             new CacheLoader<Maybe<String>, TreeItem>() {
                 @Override
                 public TreeItem load(Maybe<String> key) throws Exception {
@@ -71,18 +69,19 @@ public class ReportPortal {
 
     private Maybe<String> launch;
 
-    private ReportPortal(ReportPortalClient reportPortalClient) {
-        this.reportPortalClient = Preconditions.checkNotNull(reportPortalClient, "RestEndpoing shouldn't be NULL");
+    private ReportPortal(ReportPortalClient rpClient) {
+        this.rpClient = Preconditions.checkNotNull(rpClient, "RestEndpoing shouldn't be NULL");
+//        this.rpContext = Preconditions.checkNotNull(rpContext, "Context shouldn't be NULL");
     }
 
-    public static ReportPortal startLaunch(ReportPortalClient client, StartLaunchRQ rq) {
-        ReportPortal service = new ReportPortal(client);
+    public static ReportPortal startLaunch(ReportPortalClient rpClient, StartLaunchRQ rq) {
+        ReportPortal service = new ReportPortal(rpClient);
         service.startLaunch(rq);
         return service;
     }
 
     public Maybe<String> startLaunch(StartLaunchRQ rq) {
-        this.launch = reportPortalClient.startLaunch(rq).map(TO_ID)
+        this.launch = rpClient.startLaunch(rq).map(TO_ID)
                 .doOnSuccess(new Consumer<String>() {
                     @Override
                     public void accept(String s) throws Exception {
@@ -104,17 +103,10 @@ public class ReportPortal {
                 .andThen(this.launch.flatMap(new Function<String, Maybe<OperationCompletionRS>>() {
                     @Override
                     public Maybe<OperationCompletionRS> apply(String id) throws Exception {
-                        return reportPortalClient.finishLaunch(id, rq);
+                        return rpClient.finishLaunch(id, rq);
                     }
                 })).cache();
         finish.blockingGet();
-    }
-
-    public void log(SaveLogRQ rq) {
-        final LoggingContext loggingContext = LOGGING_CONTEXT.get();
-        if (null != loggingContext) {
-            loggingContext.log(rq);
-        }
     }
 
     public Maybe<String> startTestItem(final StartTestItemRQ rq) {
@@ -122,11 +114,11 @@ public class ReportPortal {
             @Override
             public Maybe<String> apply(String id) throws Exception {
                 rq.setLaunchId(id);
-                return reportPortalClient.startTestItem(rq).map(TO_ID);
+                return rpClient.startTestItem(rq).map(TO_ID);
 
             }
         }).cache();
-        QUEUE.getUnchecked(launch).addToQueue(testItem.ignoreElement().cache());
+        QUEUE.getUnchecked(launch).addToQueue(testItem.ignoreElement());
         return testItem;
     }
 
@@ -138,23 +130,21 @@ public class ReportPortal {
                     @Override
                     public MaybeSource<String> apply(String parentId) throws Exception {
                         rq.setLaunchId(launchId);
-                        return reportPortalClient.startTestItem(parentId, rq).map(TO_ID);
+                        return rpClient.startTestItem(parentId, rq).map(TO_ID);
                     }
-                }).cache();
+                });
             }
         }).cache();
 
-        QUEUE.getUnchecked(itemId).withParent(parentId).addToQueue(itemId.ignoreElement().cache());
-        LOGGING_CONTEXT.set(new LoggingContext(this.reportPortalClient));
+        QUEUE.getUnchecked(itemId).withParent(parentId).addToQueue(itemId.ignoreElement());
+        LoggingContext.init(itemId, this.rpClient);
         return itemId;
     }
 
     public void finishTestItem(Maybe<String> itemId, final FinishTestItemRQ rq) {
         Preconditions.checkArgument(null != itemId, "ItemID should not be null");
-        final LoggingContext loggingContext = LOGGING_CONTEXT.get();
-        if (null != loggingContext) {
-            QUEUE.getUnchecked(launch).addToQueue(loggingContext.completed());
-        }
+
+        QUEUE.getUnchecked(launch).addToQueue(LoggingContext.complete());
 
         final TreeItem treeItem = QUEUE.getUnchecked(itemId);
 
@@ -163,9 +153,9 @@ public class ReportPortal {
                 .andThen(itemId.flatMap(new Function<String, MaybeSource<OperationCompletionRS>>() {
                     @Override
                     public Maybe<OperationCompletionRS> apply(String itemId) throws Exception {
-                        return reportPortalClient.finishTestItem(itemId, rq);
+                        return rpClient.finishTestItem(itemId, rq);
                     }
-                }).ignoreElement().cache()).cache();
+                }).ignoreElement()).cache();
 
         //find parent and add to its queue
         final Maybe<String> parent = treeItem.parent;

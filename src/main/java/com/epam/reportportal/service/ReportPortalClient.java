@@ -1,6 +1,5 @@
 package com.epam.reportportal.service;
 
-import com.epam.ta.reportportal.ws.model.BatchElementCreatedRS;
 import com.epam.ta.reportportal.ws.model.BatchSaveOperatingRS;
 import com.epam.ta.reportportal.ws.model.EntryCreatedRS;
 import com.epam.ta.reportportal.ws.model.FinishExecutionRQ;
