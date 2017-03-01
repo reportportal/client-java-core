@@ -1,9 +1,12 @@
 plugins {
     id 'net.researchgate.release' version '2.4.1'
     id "com.jfrog.bintray" version "1.7"
+    id 'com.github.johnrengelman.shadow' version '1.2.4'
+
 }
 apply plugin: 'java'
-apply from: 'release.gradle'
+apply plugin: 'maven-publish'
+
 
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
@@ -12,28 +15,31 @@ description = 'EPAM Report portal. Client'
 
 repositories {
     jcenter()
+    mavenLocal()
     maven { url "http://dl.bintray.com/epam/reportportal" }
     maven { url "https://jitpack.io" }
-
 }
+configurations.shadow.extendsFrom(configurations.runtime)
+
 dependencies {
+
     //compile 'com.epam.reportportal:commons-model:2.6.0'
-    compile 'com.github.reportportal:commons-model:22dbc6e91d'
-
-    compile 'com.google.guava:guava:20.0'
-    compile 'com.github.avarabyeu:restendpoint-jdk6:0.2.0'
+    compile 'com.github.reportportal:commons-model:34d9561455'
+    
+    compile  'com.google.inject:guice:4.1.0'
     compile 'com.fasterxml.jackson.core:jackson-databind:2.8.6'
-//    compile 'com.fasterxml.jackson.core:jackson-core:2.8.6'
+    compile 'io.reactivex.rxjava2:rxjava:2.0.6'
 
-    compile 'com.google.inject:guice:4.1.0'
     compile 'org.apache.tika:tika-core:1.4'
     compile 'org.slf4j:slf4j-api:1.7.2'
     testCompile 'junit:junit:4.12'
     testCompile 'org.mockito:mockito-all:2.0.2-beta'
     testCompile 'org.hamcrest:hamcrest-all:1.3'
 
-    compileOnly 'info.cukes:gherkin:2.12.2'
+    compileOnly 'com.google.guava:guava:20.0'
+    compileOnly 'com.github.avarabyeu:restendpoint-jdk6:0.2.0'
 }
+
 test.useTestNG()
 test.maxParallelForks = 1
 
@@ -41,3 +47,77 @@ task wrapper(type: Wrapper) {
     gradleVersion = '3.0'
 }
 
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+javadoc() {
+    failOnError = false
+}
+
+shadowJar {
+    configurations = [project.configurations.runtime]
+
+    dependencies {
+        include(dependency('com.github.avarabyeu:restendpoint-jdk6'))
+        include(dependency('org.apache.httpcomponents:httpasyncclient'))
+        include(dependency('org.apache.httpcomponents:httpmime'))
+        include(dependency('com.google.guava:guava'))
+
+    }
+    classifier = null
+    relocate 'com.github.avarabyeu.restendpoint', 'com.epam.restendpoint'
+    relocate 'org.apache.http', 'repacked.org.apache.http'
+    relocate 'com.google.common', 'repacked.com.google.common'
+}
+
+
+publishing {
+    publications {
+        shadow(MavenPublication) {
+
+            pom.withXml {
+                def root = asNode()
+                root.dependencies.'*'.findAll() {
+                    it.scope.text() == 'runtime' && project.configurations.compile.allDependencies.find { dep ->
+                        dep.name == it.artifactId.text()
+                    }
+                }.each() {
+                    it.scope*.value = 'compile'
+                }
+            }
+
+            from components.shadow
+            groupId 'com.epam.reportportal'
+            artifactId "$project.name"
+        }
+    }
+}
+
+bintray {
+    user = project.hasProperty('bintrayUser') ? project.property('bintrayUser') : System.getenv('BINTRAY_USER')
+    key = project.hasProperty('bintrayApiKey') ? project.property('bintrayApiKey') : System.getenv('BINTRAY_API_KEY')
+    publications = ['shadow']
+    publish = true
+    pkg {
+        repo = 'reportportal'
+        name = "$project.name"
+        desc = "$project.description"
+        websiteUrl = 'https://reportportal.github.io/'
+        issueTrackerUrl = "https://github.com/reportportal/$project.name/issues"
+        vcsUrl = "https://github.com/reportportal/$project.name"
+        githubRepo = "reportportal/$project.name"
+        githubReleaseNotesFile = 'CHANGELOG.md'
+
+        userOrg = 'epam'
+        licenses = ['GPL-3.0']
+    }
+}
+afterReleaseBuild.dependsOn bintrayUpload

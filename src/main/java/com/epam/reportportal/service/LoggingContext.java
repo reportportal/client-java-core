@@ -4,13 +4,14 @@ import com.epam.ta.reportportal.ws.model.BatchSaveOperatingRS;
 import com.epam.ta.reportportal.ws.model.Constants;
 import com.epam.ta.reportportal.ws.model.log.SaveLogRQ;
 import com.github.avarabyeu.restendpoint.http.MultiPartRequest;
+import com.google.common.io.ByteSource;
+import com.google.common.net.MediaType;
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Completable;
 import io.reactivex.Flowable;
 import io.reactivex.Maybe;
 import io.reactivex.functions.Function;
 import io.reactivex.subjects.PublishSubject;
-import org.apache.http.entity.ContentType;
 import org.reactivestreams.Publisher;
 
 import java.util.List;
@@ -67,8 +68,9 @@ public class LoggingContext {
 
                         for (SaveLogRQ rq : rqs) {
                             if (null != rq.getFile()) {
+
                                 builder.addBinaryPart(Constants.LOG_REQUEST_BINARY_PART, rq.getFile().getName(),
-                                        ContentType.APPLICATION_OCTET_STREAM.getMimeType(), rq.getFile().getContent());
+                                        MediaType.OCTET_STREAM.toString(), ByteSource.wrap(rq.getFile().getContent()));
                             }
                         }
                         return client.log(builder.build()).toFlowable();

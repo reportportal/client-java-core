@@ -118,7 +118,8 @@ public class ReportPortalClientModule implements Module {
      * @param baseUrl      Base url of application
      */
     @Provides
-    public RestEndpoint provideRestEndpoint(CloseableHttpAsyncClient httpClient, @Named("serializers") List<Serializer> serializers,
+    public RestEndpoint provideRestEndpoint(CloseableHttpAsyncClient httpClient,
+            @Named("serializers") List<Serializer> serializers,
             ErrorHandler errorHandler, @ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl,
             @ListenerPropertyValue(ListenerProperty.PROJECT_NAME) String project) {
         return new HttpClientRestEndpoint(httpClient, serializers, errorHandler, baseUrl + "/" + project);
@@ -140,19 +141,19 @@ public class ReportPortalClientModule implements Module {
 
         //HttpClientFactory httpClientFactory;
 
-//        List<HttpRequestInterceptor> interceptors = new ArrayList<HttpRequestInterceptor>(1);
-//        interceptors.add(new BearerAuthorizationInterceptor(uuid));
+        //        List<HttpRequestInterceptor> interceptors = new ArrayList<HttpRequestInterceptor>(1);
+        //        interceptors.add(new BearerAuthorizationInterceptor(uuid));
 
-//        if (HTTPS.equals(new URL(baseUrl).getProtocol()) && keyStore != null) {
-//            if (null == keyStorePassword) {
-//                throw new InternalReportPortalClientException(
-//                        "You should provide keystore password parameter [" + ListenerProperty.KEYSTORE_PASSWORD
-//                                + "] if you use HTTPS protocol");
-//            }
-//            httpClientFactory = new SslClientFactory(null, keyStore, keyStorePassword, interceptors);
-//        } else {
-//            httpClientFactory = new AuthClientFactory(null, interceptors);
-//        }
+        //        if (HTTPS.equals(new URL(baseUrl).getProtocol()) && keyStore != null) {
+        //            if (null == keyStorePassword) {
+        //                throw new InternalReportPortalClientException(
+        //                        "You should provide keystore password parameter [" + ListenerProperty.KEYSTORE_PASSWORD
+        //                                + "] if you use HTTPS protocol");
+        //            }
+        //            httpClientFactory = new SslClientFactory(null, keyStore, keyStorePassword, interceptors);
+        //        } else {
+        //            httpClientFactory = new AuthClientFactory(null, interceptors);
+        //        }
 
         return HttpAsyncClients.custom().addInterceptorLast(new HttpRequestInterceptor() {
             @Override
@@ -176,25 +177,25 @@ public class ReportPortalClientModule implements Module {
      *
      * @param restEndpoint {@link RestEndpoint} instance
      */
-//    @Provides
-//    @Singleton
-//    public BatchedReportPortalService provideReportPortalService(RestEndpoint restEndpoint,
-//            @ListenerPropertyValue(ListenerProperty.PROJECT_NAME) String project,
-//            @ListenerPropertyValue(ListenerProperty.BATCH_SIZE_LOGS) String batchLogsSize) { // NOSONAR
-//        int logsBatchSize;
-//        try {
-//            logsBatchSize = Integer.parseInt(batchLogsSize);
-//        } catch (NumberFormatException e) {
-//            logsBatchSize = 10;
-//        }
-//        return new BatchedReportPortalService(restEndpoint, API_BASE, project, logsBatchSize);
-//    }
+    //    @Provides
+    //    @Singleton
+    //    public BatchedReportPortalService provideReportPortalService(RestEndpoint restEndpoint,
+    //            @ListenerPropertyValue(ListenerProperty.PROJECT_NAME) String project,
+    //            @ListenerPropertyValue(ListenerProperty.BATCH_SIZE_LOGS) String batchLogsSize) { // NOSONAR
+    //        int logsBatchSize;
+    //        try {
+    //            logsBatchSize = Integer.parseInt(batchLogsSize);
+    //        } catch (NumberFormatException e) {
+    //            logsBatchSize = 10;
+    //        }
+    //        return new BatchedReportPortalService(restEndpoint, API_BASE, project, logsBatchSize);
+    //    }
 
     /**
      * Binds the same instance for {@link ReportPortal} interface.
      * Guice cannot bind one implementation to two interfaces automatically
      *
-     * @param reportPortalService Instance for binding
+     * @param restEndpoint Instance for binding
      * @return {@link ReportPortal} instance
      */
     @Provides

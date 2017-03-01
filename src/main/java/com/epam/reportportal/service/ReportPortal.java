@@ -58,7 +58,7 @@ public class ReportPortal {
      * REST Client
      */
     private final ReportPortalClient rpClient;
-//    private final ReportPortalContext rpContext;
+    //    private final ReportPortalContext rpContext;
     private final LoadingCache<Maybe<String>, TreeItem> QUEUE = CacheBuilder.newBuilder().build(
             new CacheLoader<Maybe<String>, TreeItem>() {
                 @Override
@@ -71,7 +71,7 @@ public class ReportPortal {
 
     private ReportPortal(ReportPortalClient rpClient) {
         this.rpClient = Preconditions.checkNotNull(rpClient, "RestEndpoing shouldn't be NULL");
-//        this.rpContext = Preconditions.checkNotNull(rpContext, "Context shouldn't be NULL");
+        //        this.rpContext = Preconditions.checkNotNull(rpContext, "Context shouldn't be NULL");
     }
 
     public static ReportPortal startLaunch(ReportPortalClient rpClient, StartLaunchRQ rq) {
@@ -180,7 +180,7 @@ public class ReportPortal {
             return this;
         }
 
-        synchronized TreeItem addToQueue(Completable completable) {
+        TreeItem addToQueue(Completable completable) {
             this.children.add(completable);
             return this;
         }
