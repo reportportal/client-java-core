@@ -54,9 +54,7 @@ import org.apache.http.impl.nio.client.HttpAsyncClients;
 import org.apache.http.nio.client.HttpAsyncClient;
 import org.apache.http.protocol.HttpContext;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.util.List;
 
 /**
@@ -127,17 +125,9 @@ public class ReportPortalClientModule implements Module {
 
     /**
      * Default {@link HttpAsyncClient} binding
-     *
-     * @param baseUrl          Base URL of application
-     * @param keyStore         Path to keystore
-     * @param keyStorePassword Keystore password
-     * @throws MalformedURLException If URL is not correct
      */
     @Provides
-    public CloseableHttpAsyncClient provideHttpClient(@ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl,
-            @Nullable @ListenerPropertyValue(ListenerProperty.KEYSTORE_RESOURCE) String keyStore,
-            @Nullable @ListenerPropertyValue(ListenerProperty.KEYSTORE_PASSWORD) String keyStorePassword,
-            @ListenerPropertyValue(ListenerProperty.UUID) final String uuid) throws MalformedURLException {
+    public CloseableHttpAsyncClient provideHttpClient(@ListenerPropertyValue(ListenerProperty.UUID) final String uuid) {
 
         //HttpClientFactory httpClientFactory;
 
@@ -171,25 +161,6 @@ public class ReportPortalClientModule implements Module {
     public ListenerParameters provideListenerProperties() {
         return new ListenerParameters(PropertiesLoader.getProperties());
     }
-
-    /**
-     * Provides junit-style reportportal service
-     *
-     * @param restEndpoint {@link RestEndpoint} instance
-     */
-    //    @Provides
-    //    @Singleton
-    //    public BatchedReportPortalService provideReportPortalService(RestEndpoint restEndpoint,
-    //            @ListenerPropertyValue(ListenerProperty.PROJECT_NAME) String project,
-    //            @ListenerPropertyValue(ListenerProperty.BATCH_SIZE_LOGS) String batchLogsSize) { // NOSONAR
-    //        int logsBatchSize;
-    //        try {
-    //            logsBatchSize = Integer.parseInt(batchLogsSize);
-    //        } catch (NumberFormatException e) {
-    //            logsBatchSize = 10;
-    //        }
-    //        return new BatchedReportPortalService(restEndpoint, API_BASE, project, logsBatchSize);
-    //    }
 
     /**
      * Binds the same instance for {@link ReportPortal} interface.
