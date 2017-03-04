@@ -57,7 +57,7 @@ shadowJar {
 dependencies {
 
     //compile 'com.epam.reportportal:commons-model:2.6.0'
-    shadow 'com.github.reportportal:commons-model:34d9561455'
+    shadow 'com.github.reportportal:commons-model:137b0821b7'
 
     compile 'com.google.guava:guava:20.0'
     compile 'com.github.avarabyeu:restendpoint-jdk6:0.2.0'

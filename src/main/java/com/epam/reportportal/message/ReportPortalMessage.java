@@ -20,10 +20,12 @@
  */
 package com.epam.reportportal.message;
 
-import java.io.File;
-
+import com.epam.reportportal.utils.MimeTypeDetector;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Files;
+import com.google.common.net.MediaType;
+
+import java.io.File;
 
 /**
  * Report portal message wrapper. This wrapper should be used if any file <br>
@@ -32,33 +34,37 @@ import com.google.common.io.Files;
  */
 public class ReportPortalMessage {
 
-	private ByteSource data;
+    private TypeAwareByteSource data;
 
-	private String message;
+    private String message;
 
-	public ReportPortalMessage() {
-	}
+    public ReportPortalMessage() {
+    }
 
-	public ReportPortalMessage(String message) {
-		this.message = message;
-	}
+    public ReportPortalMessage(String message) {
+        this.message = message;
+    }
 
-	public ReportPortalMessage(final ByteSource data, String message) {
-		this(message);
-		this.data = data;
-	}
+    public ReportPortalMessage(final ByteSource data, String mediaType, String message) {
+        this(message);
+        this.data = new TypeAwareByteSource(data, MediaType.parse(mediaType));
+    }
 
-	public ReportPortalMessage(File file, String message) {
-		this(message);
-		data = Files.asByteSource(file);
-	}
+    public ReportPortalMessage(final TypeAwareByteSource data, String message) {
+        this(message);
+        this.data = data;
+    }
 
-	public String getMessage() {
-		return message;
-	}
+    public ReportPortalMessage(File file, String message) {
+        this(new TypeAwareByteSource(Files.asByteSource(file), MimeTypeDetector.detect(file)), message);
+    }
 
-	public ByteSource getData() {
-		return data;
-	}
+    public String getMessage() {
+        return message;
+    }
+
+    public TypeAwareByteSource getData() {
+        return data;
+    }
 
 }

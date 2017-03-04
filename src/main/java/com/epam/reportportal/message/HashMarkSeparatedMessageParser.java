@@ -22,7 +22,6 @@ package com.epam.reportportal.message;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Files;
@@ -31,6 +30,8 @@ import com.google.common.io.Resources;
 import java.io.File;
 import java.net.URL;
 import java.util.List;
+
+import static com.epam.reportportal.utils.MimeTypeDetector.detect;
 
 /**
  * Colon separated message parser. Expects string in the following format:<br>
@@ -41,57 +42,63 @@ import java.util.List;
  */
 public class HashMarkSeparatedMessageParser implements MessageParser {
 
-	/**
-	 * Different representations of binary data
-	 */
-	private enum MessageType {
-		FILE {
-			@Override
-			public ByteSource toByteSource(String data) {
-				File file = new File(data);
-				return file.exists() ? Files.asByteSource(file) : null;
-			}
-		},
-		BASE64 {
-			@Override
-			public ByteSource toByteSource(final String data) {
-				return ByteSource.wrap(BaseEncoding.base64().decode(data));
-			}
-		},
-		RESOURCE {
-			@Override
-			public ByteSource toByteSource(String data) {
-				URL resource = Resources.getResource(data);
-				return null == resource ? null : Resources.asByteSource(resource);
-			}
-		};
+    /**
+     * Different representations of binary data
+     */
+    private enum MessageType {
+        FILE {
+            @Override
+            public TypeAwareByteSource toByteSource(String data) {
+                File file = new File(data);
+                if (!file.exists()) {
+                    return null;
+                }
+                return new TypeAwareByteSource(Files.asByteSource(file), detect(file));
+            }
+        },
+        BASE64 {
+            @Override
+            public TypeAwareByteSource toByteSource(final String data) {
+                final ByteSource source = ByteSource.wrap(BaseEncoding.base64().decode(data));
+                return new TypeAwareByteSource(source, detect(source, null));
+            }
+        },
+        RESOURCE {
+            @Override
+            public TypeAwareByteSource toByteSource(String resourceName) {
+                URL resource = Resources.getResource(resourceName);
+                if (null == resource) {
+                    return null;
+                }
+                final ByteSource source = Resources.asByteSource(resource);
+                return new TypeAwareByteSource(source, detect(source, resourceName));
+            }
+        };
 
-		abstract public ByteSource toByteSource(String data);
+        abstract public TypeAwareByteSource toByteSource(String data);
 
-		public static MessageType fromString(String messageType) {
-			return MessageType.valueOf(messageType);
-		}
-	}
+        public static MessageType fromString(String messageType) {
+            return MessageType.valueOf(messageType);
+        }
+    }
 
-	private static final int CHUNKS_COUNT = 4;
+    private static final int CHUNKS_COUNT = 4;
 
-	@Override
-	public ReportPortalMessage parse(String message) {
-		Iterable<String> splitted = Splitter.on("#").limit(CHUNKS_COUNT).split(message);
+    @Override
+    public ReportPortalMessage parse(String message) {
+        List<String> split = Splitter.on("#").limit(CHUNKS_COUNT).splitToList(message);
 
-		List<String> splittedAsList = ImmutableList.<String>builder().addAll(splitted).build();
+        // -1 because there may be no
+        if (CHUNKS_COUNT != split.size()) {
+            throw new RuntimeException(
+                    "Incorrect message format. Chunks: " + Joiner.on("\n").join(split) + "\n count: " + split.size());
+        }
+        return new ReportPortalMessage(MessageType.fromString(split.get(1)).toByteSource(split.get(2)),
+                split.get(3));
+    }
 
-		// -1 because there may be no
-		if (CHUNKS_COUNT != splittedAsList.size()) {
-			throw new RuntimeException(
-					"Incorrect message format. Chunks: " + Joiner.on("\n").join(splittedAsList) + "\n count: " + splittedAsList.size());
-		}
-		return new ReportPortalMessage(MessageType.fromString(splittedAsList.get(1)).toByteSource(splittedAsList.get(2)),
-				splittedAsList.get(3));
-	}
-
-	@Override
-	public boolean supports(String message) {
-		return message.startsWith(RP_MESSAGE_PREFIX);
-	}
+    @Override
+    public boolean supports(String message) {
+        return message.startsWith(RP_MESSAGE_PREFIX);
+    }
 }
