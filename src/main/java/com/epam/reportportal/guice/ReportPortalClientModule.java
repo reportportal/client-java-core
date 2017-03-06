@@ -20,12 +20,14 @@
  */
 package com.epam.reportportal.guice;
 
+import com.epam.reportportal.exception.InternalReportPortalClientException;
 import com.epam.reportportal.listeners.ListenerParameters;
 import com.epam.reportportal.message.HashMarkSeparatedMessageParser;
 import com.epam.reportportal.message.MessageParser;
 import com.epam.reportportal.service.ReportPortal;
 import com.epam.reportportal.service.ReportPortalClient;
 import com.epam.reportportal.service.ReportPortalErrorHandler;
+import com.epam.reportportal.utils.SslUtils;
 import com.epam.reportportal.utils.properties.ListenerProperty;
 import com.epam.reportportal.utils.properties.PropertiesLoader;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -49,12 +51,21 @@ import com.google.inject.name.Names;
 import org.apache.http.HttpException;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpRequestInterceptor;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.impl.nio.client.HttpAsyncClients;
 import org.apache.http.nio.client.HttpAsyncClient;
 import org.apache.http.protocol.HttpContext;
+import org.apache.http.ssl.SSLContextBuilder;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 /**
@@ -97,14 +108,14 @@ public class ReportPortalClientModule implements Module {
      */
     @Provides
     @Singleton
-    public Serializer provideSeriazer() {
+    public Serializer provideSerializer() {
         return new JacksonSerializer(new ObjectMapper());
     }
 
     @Provides
     @Singleton
     @Named("serializers")
-    public List<Serializer> provideSeriazers(Serializer defaultSerializer) {
+    public List<Serializer> provideSerializers(Serializer defaultSerializer) {
         return Lists.newArrayList(defaultSerializer, new ByteArraySerializer());
     }
 
@@ -127,25 +138,30 @@ public class ReportPortalClientModule implements Module {
      * Default {@link HttpAsyncClient} binding
      */
     @Provides
-    public CloseableHttpAsyncClient provideHttpClient(@ListenerPropertyValue(ListenerProperty.UUID) final String uuid) {
+    public CloseableHttpAsyncClient provideHttpClient(@ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl,
+            @Nullable @ListenerPropertyValue(ListenerProperty.KEYSTORE_RESOURCE) String keyStore,
+            @Nullable @ListenerPropertyValue(ListenerProperty.KEYSTORE_PASSWORD) String keyStorePassword,
+            @ListenerPropertyValue(ListenerProperty.UUID) final String uuid) throws MalformedURLException {
 
-        //HttpClientFactory httpClientFactory;
+        final HttpAsyncClientBuilder builder = HttpAsyncClients.custom();
+        if (HTTPS.equals(new URL(baseUrl).getProtocol()) && keyStore != null) {
+            if (null == keyStorePassword) {
+                throw new InternalReportPortalClientException(
+                        "You should provide keystore password parameter [" + ListenerProperty.KEYSTORE_PASSWORD
+                                + "] if you use HTTPS protocol");
+            }
 
-        //        List<HttpRequestInterceptor> interceptors = new ArrayList<HttpRequestInterceptor>(1);
-        //        interceptors.add(new BearerAuthorizationInterceptor(uuid));
+            try {
+                builder.setSSLContext(
+                        SSLContextBuilder.create().loadTrustMaterial(SslUtils.loadKeyStore(keyStore, keyStorePassword),
+                                TrustSelfSignedStrategy.INSTANCE).build());
+            } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
+                throw new InternalReportPortalClientException(
+                        "Unable to load trust store");
+            }
 
-        //        if (HTTPS.equals(new URL(baseUrl).getProtocol()) && keyStore != null) {
-        //            if (null == keyStorePassword) {
-        //                throw new InternalReportPortalClientException(
-        //                        "You should provide keystore password parameter [" + ListenerProperty.KEYSTORE_PASSWORD
-        //                                + "] if you use HTTPS protocol");
-        //            }
-        //            httpClientFactory = new SslClientFactory(null, keyStore, keyStorePassword, interceptors);
-        //        } else {
-        //            httpClientFactory = new AuthClientFactory(null, interceptors);
-        //        }
-
-        return HttpAsyncClients.custom().addInterceptorLast(new HttpRequestInterceptor() {
+        }
+        return builder.addInterceptorLast(new HttpRequestInterceptor() {
             @Override
             public void process(HttpRequest request, HttpContext context) throws HttpException, IOException {
                 request.setHeader(HttpHeaders.AUTHORIZATION, "bearer " + uuid);
