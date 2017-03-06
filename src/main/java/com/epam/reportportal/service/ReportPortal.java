@@ -58,7 +58,10 @@ public class ReportPortal {
      * REST Client
      */
     private final ReportPortalClient rpClient;
-    //    private final ReportPortalContext rpContext;
+
+    /**
+     * Messages queue to track items execution order
+     */
     private final LoadingCache<Maybe<String>, TreeItem> QUEUE = CacheBuilder.newBuilder().build(
             new CacheLoader<Maybe<String>, TreeItem>() {
                 @Override
@@ -71,32 +74,30 @@ public class ReportPortal {
 
     private ReportPortal(ReportPortalClient rpClient) {
         this.rpClient = Preconditions.checkNotNull(rpClient, "RestEndpoing shouldn't be NULL");
-        //        this.rpContext = Preconditions.checkNotNull(rpContext, "Context shouldn't be NULL");
     }
 
-    public static ReportPortal startLaunch(ReportPortalClient rpClient, StartLaunchRQ rq) {
+    public ReportPortal startLaunch(ReportPortalClient rpClient, StartLaunchRQ rq) {
         ReportPortal service = new ReportPortal(rpClient);
         service.startLaunch(rq);
         return service;
     }
 
+    /**
+     * Starts launch in ReportPortal
+     *
+     * @param rq Request Data
+     * @return Launch ID promise
+     */
     public Maybe<String> startLaunch(StartLaunchRQ rq) {
-        this.launch = rpClient.startLaunch(rq).map(TO_ID)
-                .doOnSuccess(new Consumer<String>() {
-                    @Override
-                    public void accept(String s) throws Exception {
-                        System.out.println(s);
-                    }
-                })
-                .doOnError(new Consumer<Throwable>() {
-                    @Override
-                    public void accept(Throwable e) throws Exception {
-                        e.printStackTrace();
-                    }
-                }).cache();
+        this.launch = rpClient.startLaunch(rq).map(TO_ID).cache();
         return launch;
     }
 
+    /**
+     * Finishes launch in ReportPortal. Blocks until all items are reported correctly
+     *
+     * @param rq Finish RQ
+     */
     public void finishLaunch(final FinishExecutionRQ rq) {
         final Maybe<OperationCompletionRS> finish = Completable
                 .concat(QUEUE.getUnchecked(this.launch).children)
@@ -109,6 +110,12 @@ public class ReportPortal {
         finish.blockingGet();
     }
 
+    /**
+     * Starts new test item in ReportPortal asynchronously (non-blocking)
+     *
+     * @param rq Start RQ
+     * @return Test Item ID promise
+     */
     public Maybe<String> startTestItem(final StartTestItemRQ rq) {
         final Maybe<String> testItem = this.launch.flatMap(new Function<String, Maybe<String>>() {
             @Override
@@ -122,6 +129,12 @@ public class ReportPortal {
         return testItem;
     }
 
+    /**
+     * Starts new test item in ReportPortal asynchronously (non-blocking)
+     *
+     * @param rq Start RQ
+     * @return Test Item ID promise
+     */
     public Maybe<String> startTestItem(final Maybe<String> parentId, final StartTestItemRQ rq) {
         final Maybe<String> itemId = this.launch.flatMap(new Function<String, Maybe<String>>() {
             @Override
@@ -141,6 +154,12 @@ public class ReportPortal {
         return itemId;
     }
 
+    /**
+     * Finishes Test Item in ReportPortal. Non-blocking. Schedules finish after success of all child items
+     *
+     * @param itemId Item ID promise
+     * @param rq     Finish request
+     */
     public void finishTestItem(Maybe<String> itemId, final FinishTestItemRQ rq) {
         Preconditions.checkArgument(null != itemId, "ItemID should not be null");
 
@@ -155,23 +174,29 @@ public class ReportPortal {
                     public Maybe<OperationCompletionRS> apply(String itemId) throws Exception {
                         return rpClient.finishTestItem(itemId, rq);
                     }
+                }).doAfterSuccess(new Consumer<OperationCompletionRS>() {
+                    @Override
+                    public void accept(OperationCompletionRS operationCompletionRS) throws Exception {
+                        //cleanup children
+                        treeItem.children = null;
+                    }
                 }).ignoreElement()).cache();
 
         //find parent and add to its queue
         final Maybe<String> parent = treeItem.parent;
         if (null != parent) {
-            System.out.println("Sending to parent..." + parent);
             QUEUE.getUnchecked(parent).addToQueue(finishCompletion);
         } else {
             //seems like this is root item
-            System.out.println("Sending to root..." + this.launch);
             QUEUE.getUnchecked(this.launch).addToQueue(finishCompletion);
         }
 
     }
 
+    /**
+     * Wrapper around TestItem entity to be able to track parent and children items
+     */
     static class TreeItem {
-
         Maybe<String> parent;
         List<Completable> children = new CopyOnWriteArrayList<>();
 
