@@ -21,7 +21,6 @@
 package com.epam.reportportal.guice;
 
 import com.epam.reportportal.exception.InternalReportPortalClientException;
-import com.epam.reportportal.listeners.ListenerParameters;
 import com.epam.reportportal.message.HashMarkSeparatedMessageParser;
 import com.epam.reportportal.message.MessageParser;
 import com.epam.reportportal.service.ReportPortal;
@@ -29,7 +28,6 @@ import com.epam.reportportal.service.ReportPortalClient;
 import com.epam.reportportal.service.ReportPortalErrorHandler;
 import com.epam.reportportal.utils.SslUtils;
 import com.epam.reportportal.utils.properties.ListenerProperty;
-import com.epam.reportportal.utils.properties.PropertiesLoader;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.avarabyeu.restendpoint.http.ErrorHandler;
 import com.github.avarabyeu.restendpoint.http.HttpClientRestEndpoint;
@@ -41,13 +39,10 @@ import com.github.avarabyeu.restendpoint.serializer.json.JacksonSerializer;
 import com.google.common.collect.Lists;
 import com.google.common.net.HttpHeaders;
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.name.Named;
-import com.google.inject.name.Names;
 import org.apache.http.HttpException;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpRequestInterceptor;
@@ -79,16 +74,7 @@ public class ReportPortalClientModule implements Module {
 
     @Override
     public void configure(Binder binder) {
-        Names.bindProperties(binder, PropertiesLoader.getProperties());
-        for (final ListenerProperty listenerProperty : ListenerProperty.values()) {
-            binder.bind(Key.get(String.class, ListenerPropertyBinder.named(listenerProperty)))
-                    .toProvider(new Provider<String>() {
-                        @Override
-                        public String get() {
-                            return PropertiesLoader.getProperty(listenerProperty.getPropertyName());
-                        }
-                    });
-        }
+
     }
 
     /**
@@ -129,8 +115,9 @@ public class ReportPortalClientModule implements Module {
     @Provides
     public RestEndpoint provideRestEndpoint(CloseableHttpAsyncClient httpClient,
             @Named("serializers") List<Serializer> serializers,
-            ErrorHandler errorHandler, @ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl,
-            @ListenerPropertyValue(ListenerProperty.PROJECT_NAME) String project) {
+            @ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl,
+            @ListenerPropertyValue(ListenerProperty.PROJECT_NAME) String project,
+            ErrorHandler errorHandler) {
         return new HttpClientRestEndpoint(httpClient, serializers, errorHandler, baseUrl + "/" + project);
     }
 
@@ -138,10 +125,12 @@ public class ReportPortalClientModule implements Module {
      * Default {@link HttpAsyncClient} binding
      */
     @Provides
-    public CloseableHttpAsyncClient provideHttpClient(@ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl,
+    public CloseableHttpAsyncClient provideHttpClient(
+            @ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl,
+            @ListenerPropertyValue(ListenerProperty.UUID) final String uuid,
             @Nullable @ListenerPropertyValue(ListenerProperty.KEYSTORE_RESOURCE) String keyStore,
-            @Nullable @ListenerPropertyValue(ListenerProperty.KEYSTORE_PASSWORD) String keyStorePassword,
-            @ListenerPropertyValue(ListenerProperty.UUID) final String uuid) throws MalformedURLException {
+            @Nullable @ListenerPropertyValue(ListenerProperty.KEYSTORE_PASSWORD) String keyStorePassword)
+            throws MalformedURLException {
 
         final HttpAsyncClientBuilder builder = HttpAsyncClients.custom();
         if (HTTPS.equals(new URL(baseUrl).getProtocol()) && keyStore != null) {
@@ -167,15 +156,6 @@ public class ReportPortalClientModule implements Module {
                 request.setHeader(HttpHeaders.AUTHORIZATION, "bearer " + uuid);
             }
         }).build();
-    }
-
-    /**
-     * Provides wrapper for report portal properties
-     */
-    @Provides
-    @Singleton
-    public ListenerParameters provideListenerProperties() {
-        return new ListenerParameters(PropertiesLoader.getProperties());
     }
 
     /**

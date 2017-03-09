@@ -20,54 +20,122 @@
  */
 package com.epam.reportportal.guice;
 
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
+import com.epam.reportportal.exception.InternalReportPortalClientException;
+import com.epam.reportportal.utils.properties.ListenerProperty;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import com.google.inject.Guice;
+import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.util.Modules;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Guice BaseInjector for testing purposes<br>
- * Simple Singleton implementation
- * 
+ * ReportPortal's Injector
+ *
  * @author Andrei Varabyeu
- * 
  */
-public class Injector extends BaseInjector {
+public class Injector {
 
-	/*
-	 * Here is implementation of singleton with lazy init based on Google Guava
-	 * Suppliers
-	 */
-	private static Supplier<Injector> instance = Suppliers.memoize(new Supplier<Injector>() {
+    /* extension class can be provided as JVM or ENV variable */
+    public static final String RP_EXTENSION_PROPERTY_NAME = "rp.extension";
 
-		@Override
-		public Injector get() {
-			return new Injector();
-		}
-	});
+    public static Injector create() {
+        return new Injector(new ConfigurationModule(), new ReportPortalClientModule());
+    }
 
-	public static Injector wrap(com.google.inject.Injector nativeInjector) {
-		return new Injector(nativeInjector);
-	}
+    public static Injector create(Module overrides) {
+        return new Injector(
+                Modules.combine(new ConfigurationModule(),
+                        new ReportPortalClientModule(), overrides));
+    }
 
-	public static Injector getInstance() {
-		return instance.get();
-	}
+    /**
+     * Creates default report portal injector
+     */
+    private Injector(Module... modules) {
+        String extensions = System.getProperty(RP_EXTENSION_PROPERTY_NAME, System.getenv(RP_EXTENSION_PROPERTY_NAME));
+        if (!Strings.isNullOrEmpty(extensions)) {
+            List<Module> extensionModules = buildExtensions(extensions);
+            this.injector = Guice.createInjector(Modules.override(modules).with(extensionModules));
+        } else {
+            this.injector = Guice.createInjector(modules);
+        }
+    }
 
-	/**
-	 * Creates default report portal injector
-	 */
-	private Injector() {
-		super(new ReportPortalClientModule());
-	}
+    /**
+     * Guice BaseInjector
+     */
+    private com.google.inject.Injector injector;
 
-	private Injector(com.google.inject.Injector nativeInjector) {
-		super(nativeInjector);
-	}
+    /**
+     * Returns bean of provided type
+     *
+     * @param type Type of Bean
+     */
+    public <T> T getBean(Class<T> type) {
+        return injector.getInstance(type);
+    }
 
-	public Injector getChildInjector(Module... modules) {
-		com.google.inject.Injector nativeInjector = instance.get().createChildInjector(modules);
-		return new Injector(nativeInjector);
+    /**
+     * Returns bean by provided key
+     *
+     * @param key Bean Key
+     */
+    public <T> T getBean(Key<T> key) {
+        return injector.getInstance(key);
+    }
 
-	}
+    /**
+     * Returns bind property
+     *
+     * @param key Property type
+     * @see ListenerProperty
+     */
+    public String getProperty(ListenerProperty key) {
+        return injector.getInstance(Key.get(String.class, new ListenerPropertyValueImpl(key)));
+    }
 
+    /**
+     * Injects members into provided instance
+     *
+     * @param object Instance members of need to be injected
+     */
+    public void injectMembers(Object object) {
+        this.injector.injectMembers(object);
+    }
+
+    /**
+     * Builds extensions based on environment variable
+     *
+     * @param extensions Command-separated list of extension module classes
+     * @return List of Guice's modules
+     */
+    private List<Module> buildExtensions(String extensions) {
+        List<String> extensionClasses = Splitter.on(",").splitToList(extensions);
+        List<Module> extensionModules = new ArrayList<>(extensionClasses.size());
+        for (String extensionClass : extensionClasses) {
+            try {
+                Class<Module> extension = (Class<Module>) Class.forName(extensionClass);
+                Preconditions.checkArgument(Module.class.isAssignableFrom(extension),
+                        "Extension class '%s' is not an Guice's Module", extensionClass);
+                extensionModules.add(extension.getConstructor(new Class[] {}).newInstance());
+            } catch (ClassNotFoundException e) {
+                String errorMessage = "Extension class with name '" + extensionClass + "' not found";
+                System.err.println(errorMessage);
+                throw new InternalReportPortalClientException(errorMessage, e);
+
+            } catch (IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
+                String errorMessage =
+                        "Unable to create instance of '" + extensionClass + "'. Does it have empty constructor?";
+                System.err.println(errorMessage);
+                throw new InternalReportPortalClientException(errorMessage, e);
+            }
+        }
+        return extensionModules;
+    }
 }

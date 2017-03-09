@@ -58,6 +58,7 @@ public class ReportPortal {
      * REST Client
      */
     private final ReportPortalClient rpClient;
+    private final int logBufferSize;
 
     /**
      * Messages queue to track items execution order
@@ -72,12 +73,13 @@ public class ReportPortal {
 
     private Maybe<String> launch;
 
-    private ReportPortal(ReportPortalClient rpClient) {
-        this.rpClient = Preconditions.checkNotNull(rpClient, "RestEndpoing shouldn't be NULL");
+    private ReportPortal(ReportPortalClient rpClient, int logBufferSize) {
+        this.rpClient = Preconditions.checkNotNull(rpClient, "RestEndpoint shouldn't be NULL");
+        this.logBufferSize = logBufferSize;
     }
 
-    public ReportPortal startLaunch(ReportPortalClient rpClient, StartLaunchRQ rq) {
-        ReportPortal service = new ReportPortal(rpClient);
+    public static ReportPortal startLaunch(ReportPortalClient rpClient, int logBufferSize, StartLaunchRQ rq) {
+        ReportPortal service = new ReportPortal(rpClient, logBufferSize);
         service.startLaunch(rq);
         return service;
     }
@@ -89,7 +91,20 @@ public class ReportPortal {
      * @return Launch ID promise
      */
     public Maybe<String> startLaunch(StartLaunchRQ rq) {
-        this.launch = rpClient.startLaunch(rq).map(TO_ID).cache();
+        this.launch = rpClient.startLaunch(rq).map(TO_ID)
+                .doOnSuccess(new Consumer<String>() {
+                    @Override
+                    public void accept(String s) throws Exception {
+                        System.out.println("Launch created");
+                    }
+                })
+                .doOnError(new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+                        throwable.printStackTrace();
+                    }
+                })
+                .cache();
         return launch;
     }
 
@@ -150,7 +165,7 @@ public class ReportPortal {
         }).cache();
 
         QUEUE.getUnchecked(itemId).withParent(parentId).addToQueue(itemId.ignoreElement());
-        LoggingContext.init(itemId, this.rpClient);
+        LoggingContext.init(itemId, this.rpClient, this.logBufferSize);
         return itemId;
     }
 

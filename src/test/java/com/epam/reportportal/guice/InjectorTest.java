@@ -20,16 +20,14 @@
  */
 package com.epam.reportportal.guice;
 
+import com.epam.reportportal.listeners.ListenerParameters;
 import com.epam.reportportal.service.ReportPortal;
-import com.github.avarabyeu.restendpoint.http.RestEndpoint;
 import com.github.avarabyeu.restendpoint.http.exception.RestEndpointIOException;
-import com.google.common.collect.ImmutableList;
 import com.google.inject.AbstractModule;
+import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
-
-import java.lang.reflect.Type;
 
 /**
  * Test base injector for report portal related stuff
@@ -38,44 +36,33 @@ import java.lang.reflect.Type;
  */
 public class InjectorTest {
 
-	@Test
-	public void testSingletons() {
-//		ReportPortal service1 = Injector.getInstance().getBean(ReportPortal.class);
-//		ReportPortal service2 = Injector.getInstance().getBean(BatchedReportPortalService.class);
+    @Test
+    public void testOverrideJvmVar() throws RestEndpointIOException {
+        System.setProperty("rp.extension", "com.epam.reportportal.guice.InjectorTest$OverrideModule");
+        ListenerParameters params = Injector.create().getBean(ListenerParameters.class);
+        Assert.assertThat("Incorrect mock!", params.getBaseUrl(), Matchers.equalTo("MOCK"));
+    }
 
-//		Assert.assertEquals(service1, service2);
+    @Test(expected = IllegalArgumentException.class)
+    public void testOverrideJvmVarNegative() throws RestEndpointIOException {
+        System.setProperty("rp.extension", "com.epam.reportportal.guice.InjectorTest");
+        Injector.create().getBean(ReportPortal.class);
+    }
 
-	}
+    public static class OverrideModule extends AbstractModule {
 
-	@Test
-	public void testOverrideJvmVar() throws RestEndpointIOException {
-		System.setProperty("rp.extension", "com.epam.reportportal.guice.InjectorTest$OverrideModule");
-		ReportPortal rpService = new BaseInjector(new ReportPortalClientModule()).getBean(ReportPortal.class);
-		Assert.assertEquals(rpService, rpService);
-//		List<String> mockedTags = rpService.getAllTags();
-//		Assert.assertThat("Incorrect mock!", mockedTags, Matchers.hasItem("mockedTag"));
-	}
+        @Override
+        protected void configure() {
+            ListenerParameters mock = Mockito.mock(ListenerParameters.class);
 
-	@Test(expected = IllegalArgumentException.class)
-	public void testOverrideJvmVarNegative() throws RestEndpointIOException {
-		System.setProperty("rp.extension", "com.epam.reportportal.guice.InjectorTest");
-		new BaseInjector(new ReportPortalClientModule()).getBean(ReportPortal.class);
-	}
+            try {
+                Mockito.<Object>when(mock.getBaseUrl()).
+                        thenReturn("MOCK");
+            } catch (RestEndpointIOException e) {
+                e.printStackTrace();
+            }
 
-	public static class OverrideModule extends AbstractModule {
-
-		@Override
-		protected void configure() {
-			RestEndpoint mock = Mockito.mock(RestEndpoint.class);
-
-			try {
-				Mockito.<Object>when(mock.get(Mockito.anyString(), Mockito.<Type>any()))
-						.thenReturn(ImmutableList.<String>builder().add("mockedTag").build());
-			} catch (RestEndpointIOException e) {
-				e.printStackTrace();
-			}
-
-			binder().bind(RestEndpoint.class).toInstance(mock);
-		}
-	}
+            binder().bind(ListenerParameters.class).toInstance(mock);
+        }
+    }
 }

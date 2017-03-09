@@ -47,157 +47,150 @@ import static com.google.common.base.Suppliers.memoize;
  */
 public class PropertiesLoader {
 
-	public static final String INNER_PATH = "reportportal.properties";
-	public static final String PATH = "./reportportal.properties";
-	private static final String[] PROXY_PROPERTIES = { "http.proxyHost", "http.proxyPort", "http.nonProxyHosts", "https.proxyHost",
-			"https.proxyPort", "ftp.proxyHost", "ftp.proxyPort", "ftp.nonProxyHosts", "socksProxyHost", "socksProxyPort", "http.proxyUser",
-			"http.proxyPassword" };
+    public static final String INNER_PATH = "reportportal.properties";
+    public static final String PATH = "./reportportal.properties";
+    private static final String[] PROXY_PROPERTIES = { "http.proxyHost", "http.proxyPort", "http.nonProxyHosts",
+            "https.proxyHost",
+            "https.proxyPort", "ftp.proxyHost", "ftp.proxyPort", "ftp.nonProxyHosts", "socksProxyHost",
+            "socksProxyPort", "http.proxyUser",
+            "http.proxyPassword" };
 
-	private static Supplier<Properties> PROPERTIES_SUPPLIER = memoize(new Supplier<Properties>() {
-		@Override
-		public Properties get() {
-			try {
-				return loadProperties();
-			} catch (IOException e) {
-				throw new InternalReportPortalClientException("Unable to load properties", e);
-			}
-		}
-	});
+    private static Supplier<Properties> PROPERTIES_SUPPLIER = memoize(new Supplier<Properties>() {
+        @Override
+        public Properties get() {
+            try {
+                return loadProperties();
+            } catch (IOException e) {
+                throw new InternalReportPortalClientException("Unable to load properties", e);
+            }
+        }
+    });
 
-	/**
-	 * Get specified property loaded from properties file and reloaded from from
-	 * environment variables.
-	 *
-	 * @param propertyName Name of property
-	 */
-	public static String getProperty(String propertyName) {
-		return PROPERTIES_SUPPLIER.get().getProperty(propertyName);
-	}
+    /**
+     * Get specified property loaded from properties file and reloaded from from
+     * environment variables.
+     *
+     * @param propertyName Name of property
+     */
+    public static String getProperty(String propertyName) {
+        return PROPERTIES_SUPPLIER.get().getProperty(propertyName);
+    }
 
-	/**
-	 * Get all properties loaded from properties file and reloaded from from
-	 * environment variables.
-	 */
-	public static Properties getProperties() {
-		return PROPERTIES_SUPPLIER.get();
-	}
+    /**
+     * Get all properties loaded from properties file and reloaded from from
+     * environment variables.
+     */
+    public static Properties getProperties() {
+        return PROPERTIES_SUPPLIER.get();
+    }
 
-	/**
-	 * Try to load properties from file situated in the class path, and then
-	 * reload existing parameters from environment variables
-	 *
-	 * @return loaded properties
-	 * @throws IOException In case of IO error
-	 */
-	private static Properties loadProperties() throws IOException {
-		Properties props = new Properties();
-		Optional<URL> propertyFile = getResource(INNER_PATH);
-		if (propertyFile.isPresent()) {
-			props.load(Resources.asByteSource(propertyFile.get()).openBufferedStream());
-		}
-		overrideWith(props, System.getProperties());
-		overrideWith(props, System.getenv());
+    /**
+     * Try to load properties from file situated in the class path, and then
+     * reload existing parameters from environment variables
+     *
+     * @return loaded properties
+     * @throws IOException In case of IO error
+     */
+    private static Properties loadProperties() throws IOException {
+        Properties props = new Properties();
+        Optional<URL> propertyFile = getResource(INNER_PATH);
+        if (propertyFile.isPresent()) {
+            props.load(Resources.asByteSource(propertyFile.get()).openBufferedStream());
+        }
+        overrideWith(props, System.getProperties());
+        overrideWith(props, System.getenv());
 
-		validateProperties(props);
-		reloadProperties(props);
-		setProxyProperties(props);
-		return props;
-	}
+        validateProperties(props);
+        setProxyProperties(props);
+        return props;
+    }
 
-	// will be removed in next release
-	private static void reloadProperties(Properties props) {
-		for (ListenerProperty property : values()) {
-			if (property.getPropertyName().startsWith("rp.") && props.getProperty(property.getPropertyName()) == null) {
-				String value = props.getProperty(property.getPropertyName().replace("rp.", "com.epam.ta.reportportal.ws."));
-				if (value != null)
-					props.put(property.getPropertyName(), value);
-			}
-		}
-	}
+    /**
+     * Current version of agents should load properties only from properties
+     * file on classpath
+     */
+    @SuppressWarnings("unused")
+    @Deprecated()
+    private static Properties loadFromFile() throws IOException {
+        Properties props = new Properties();
+        File propertiesFile = new File(PATH);
+        InputStream is;
+        try (Closer closer = Closer.create()) {
+            is = propertiesFile.exists() ?
+                    new FileInputStream(propertiesFile) :
+                    PropertiesLoader.class.getResourceAsStream(INNER_PATH);
+            closer.register(is);
+            if (is == null) {
+                throw new FileNotFoundException(INNER_PATH);
+            }
+            props.load(is);
+        }
+        return props;
+    }
 
-	/**
-	 * Current version of agents should load properties only from properties
-	 * file on classpath
-	 */
-	@SuppressWarnings("unused")
-	@Deprecated()
-	private static Properties loadFromFile() throws IOException {
-		Properties props = new Properties();
-		File propertiesFile = new File(PATH);
-		InputStream is;
-		try (Closer closer = Closer.create()) {
-			is = propertiesFile.exists() ?
-					new FileInputStream(propertiesFile) :
-					PropertiesLoader.class.getResourceAsStream(INNER_PATH);
-			closer.register(is);
-			if (is == null) {
-				throw new FileNotFoundException(INNER_PATH);
-			}
-			props.load(is);
-		}
-		return props;
-	}
+    /**
+     * Validate required properties presence
+     *
+     * @param properties Properties to be validated
+     */
+    private static void validateProperties(Properties properties) {
+        for (ListenerProperty listenerProperty : values()) {
+            if (listenerProperty.isRequired() && properties.getProperty(listenerProperty.getPropertyName()) == null) {
+                throw new IllegalArgumentException(
+                        "Property '" + listenerProperty.getPropertyName() + "' should not be null.");
+            }
+        }
+    }
 
+    /**
+     * Overrides properties from another source
+     *
+     * @param source    Properties to be overridden
+     * @param overrides Overrides
+     */
+    @VisibleForTesting
+    static void overrideWith(Properties source, Map<String, String> overrides) {
+        for (ListenerProperty listenerProperty : values()) {
+            if (overrides.get(listenerProperty.getPropertyName()) != null) {
+                source.setProperty(listenerProperty.getPropertyName(),
+                        overrides.get(listenerProperty.getPropertyName()));
+            }
+        }
+    }
 
-	/**
-	 * Validate required properties presence
-	 *
-	 * @param properties Properties to be validated
-	 */
-	private static void validateProperties(Properties properties) {
-		for (ListenerProperty listenerProperty : values()) {
-			if (listenerProperty.isRequired() && properties.getProperty(listenerProperty.getPropertyName()) == null) {
-				throw new IllegalArgumentException("Property '" + listenerProperty.getPropertyName() + "' should not be null.");
-			}
-		}
-	}
+    /**
+     * Overrides properties from another source
+     *
+     * @param source    Properties to be overridden
+     * @param overrides Overrides
+     */
+    @SuppressWarnings("unchecked")
+    @VisibleForTesting
+    static void overrideWith(Properties source, Properties overrides) {
+        overrideWith(source, ((Map) overrides));
+    }
 
-	/**
-	 * Overrides properties from another source
-	 * @param source Properties to be overridden
-	 * @param overrides Overrides
-	 */
-	@VisibleForTesting
-	static void overrideWith(Properties source, Map<String,String> overrides) {
-		for (ListenerProperty listenerProperty : values()) {
-			if (overrides.get(listenerProperty.getPropertyName()) != null) {
-				source.setProperty(listenerProperty.getPropertyName(), overrides.get(listenerProperty.getPropertyName()));
-			}
-		}
-	}
+    private static Optional<URL> getResource(String resourceName) {
+        ClassLoader loader = MoreObjects.firstNonNull(Thread.currentThread().getContextClassLoader(),
+                PropertiesLoader.class.getClassLoader());
+        return Optional.fromNullable(loader.getResource(resourceName));
+    }
 
-	/**
-	 * Overrides properties from another source
-	 * @param source Properties to be overridden
-	 * @param overrides Overrides
-	 */
-	@SuppressWarnings("unchecked")
-	@VisibleForTesting
-	static void overrideWith(Properties source, Properties overrides) {
-		overrideWith(source, ((Map) overrides));
-	}
-
-	private static Optional<URL> getResource(String resourceName) {
-		ClassLoader loader = MoreObjects.firstNonNull(Thread.currentThread().getContextClassLoader(),
-				PropertiesLoader.class.getClassLoader());
-		return Optional.fromNullable(loader.getResource(resourceName));
-	}
-
-	private static void setProxyProperties(Properties properties) {
-		for (String property : PROXY_PROPERTIES) {
-			if (properties.containsKey(property)) {
-				System.setProperty(property, properties.get(property).toString());
-			}
-		}
-		final String userName = System.getProperty("http.proxyUser");
-		final String password = System.getProperty("http.proxyPassword");
-		if (userName != null && password != null) {
-			Authenticator.setDefault(new Authenticator() {
-				@Override
-				protected PasswordAuthentication getPasswordAuthentication() {
-					return new PasswordAuthentication(userName, password.toCharArray());
-				}
-			});
-		}
-	}
+    private static void setProxyProperties(Properties properties) {
+        for (String property : PROXY_PROPERTIES) {
+            if (properties.containsKey(property)) {
+                System.setProperty(property, properties.get(property).toString());
+            }
+        }
+        final String userName = System.getProperty("http.proxyUser");
+        final String password = System.getProperty("http.proxyPassword");
+        if (userName != null && password != null) {
+            Authenticator.setDefault(new Authenticator() {
+                @Override
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    return new PasswordAuthentication(userName, password.toCharArray());
+                }
+            });
+        }
+    }
 }
