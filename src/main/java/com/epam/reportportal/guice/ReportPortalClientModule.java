@@ -34,6 +34,7 @@ import com.epam.reportportal.service.ReportPortalErrorHandler;
 import com.epam.reportportal.service.ReportPortalService;
 import com.epam.reportportal.utils.properties.ListenerProperty;
 import com.epam.reportportal.utils.properties.PropertiesLoader;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.google.inject.*;
@@ -43,6 +44,7 @@ import com.google.inject.name.Names;
 import javax.annotation.Nullable;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,6 +56,7 @@ public class ReportPortalClientModule implements Module {
 
 	public static final String API_BASE = "/api/v1";
 	private static final String HTTPS = "https";
+	private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
 
 	@Override
 	public void configure(Binder binder) {
@@ -87,7 +90,10 @@ public class ReportPortalClientModule implements Module {
 	@Provides
 	@Singleton
 	public Serializer provideSeriazer() {
-		return new Jackson2Serializer(new ObjectMapper());
+		ObjectMapper objectMapper = new ObjectMapper();
+		objectMapper.setDateFormat(new SimpleDateFormat(DEFAULT_DATE_FORMAT));
+		objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+		return new Jackson2Serializer(objectMapper);
 	}
 
 	@Provides
@@ -132,7 +138,8 @@ public class ReportPortalClientModule implements Module {
 		if (HTTPS.equals(new URL(baseUrl).getProtocol()) && keyStore != null) {
 			if (null == keyStorePassword) {
 				throw new InternalReportPortalClientException(
-						"You should provide keystore password parameter [" + ListenerProperty.KEYSTORE_PASSWORD + "] if you use HTTPS protocol");
+						"You should provide keystore password parameter [" + ListenerProperty.KEYSTORE_PASSWORD
+								+ "] if you use HTTPS protocol");
 			}
 			httpClientFactory = new SslClientFactory(null, keyStore, keyStorePassword, interceptors);
 		} else {
