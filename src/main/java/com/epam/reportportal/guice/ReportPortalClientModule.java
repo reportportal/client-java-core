@@ -110,25 +110,25 @@ public class ReportPortalClientModule implements Module {
 	@Provides
 	public RestEndpoint provideRestEndpoint(HttpClient httpClient, @Named("serializers") List<Serializer> serializers,
 			ErrorHandler<HttpResponse> errorHandler, @ListenerPropertyValue(ListenerProperty.BASE_URL) String baseUrl) {
-		for (Serializer s : serializers) {
-			if (s instanceof Jackson2Serializer) {
-				s = backwardCompatibleSerializer();
-				break;
-			}
-		}
+		serializers = makeSerializerBackwardCompatible(serializers);
 		return new HttpClientRestEndpoint(httpClient, serializers, errorHandler, baseUrl);
 	}
 
 	/**
-	 * Backward compatible jackson serialiser
+	 * Makes jackson serializer backward compatible
 	 *
-	 * @return Jackson2Serializer
+	 * @return list of updated serializers
 	 */
-	private Serializer backwardCompatibleSerializer() {
-		ObjectMapper om = new ObjectMapper();
-		om.setDateFormat(new SimpleDateFormat(DEFAULT_DATE_FORMAT));
-		om.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-		return new Jackson2Serializer(om);
+	private List<Serializer> makeSerializerBackwardCompatible(List<Serializer> serializers) {
+		for (int i = 0; i < serializers.size(); i++) {
+			if (serializers.get(i) instanceof Jackson2Serializer) {
+				ObjectMapper om = new ObjectMapper();
+				om.setDateFormat(new SimpleDateFormat(DEFAULT_DATE_FORMAT));
+				om.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+				serializers.set(i, new Jackson2Serializer(om));
+			}
+		}
+		return serializers;
 	}
 
 	/**
